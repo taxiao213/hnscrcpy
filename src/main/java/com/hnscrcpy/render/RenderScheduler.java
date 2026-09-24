@@ -18,6 +18,7 @@ public final class RenderScheduler {
     private final AtomicLong lastRendered = new AtomicLong(-1);
     private AnimationTimer timer;
     private LongConsumer statsListener;
+    private Runnable frameHook;
     private long statWindowStart;
     private int statFrames;
 
@@ -29,6 +30,11 @@ public final class RenderScheduler {
     /** 每秒回调一次实际渲染帧率。 */
     public void setStatsListener(LongConsumer listener) {
         this.statsListener = listener;
+    }
+
+    /** 每渲染一帧新画面后回调（FX 线程），用于旋转自适应等。 */
+    public void setFrameHook(Runnable hook) {
+        this.frameHook = hook;
     }
 
     public void start() {
@@ -44,6 +50,9 @@ public final class RenderScheduler {
                     renderer.render(f);
                     lastRendered.set(f.sequence());
                     statFrames++;
+                    if (frameHook != null) {
+                        frameHook.run();
+                    }
                 }
                 long elapsed = System.currentTimeMillis() - statWindowStart;
                 if (elapsed >= 1000 && statsListener != null) {

@@ -6,9 +6,13 @@ import com.hnscrcpy.session.MirrorSession;
 import com.hnscrcpy.stream.VideoConfig;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ToolBar;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
@@ -25,8 +29,10 @@ public final class MirrorWindow {
     private final Stage stage = new Stage();
     private final Label statusBar = new Label("初始化…");
     private MirrorSession session;
+    private boolean controlEnabled = true;
 
-    public void open(DeviceInfo device, VideoConfig config) {
+    public void open(DeviceInfo device, VideoConfig config, boolean controlEnabled) {
+        this.controlEnabled = controlEnabled;
         session = new MirrorSession(device.serial(), config, msg ->
                 javafx.application.Platform.runLater(() -> statusBar.setText(msg)));
 
@@ -38,10 +44,11 @@ public final class MirrorWindow {
 
         BorderPane root = new BorderPane();
         root.setCenter(center);
+        root.setTop(buildToolbar());
         statusBar.setPadding(new Insets(4, 8, 4, 8));
         root.setBottom(statusBar);
 
-        Scene scene = new Scene(root, 420, 760);
+        Scene scene = new Scene(root, 420, 800);
         stage.setTitle("hnscrcpy — " + device.displayName());
         stage.setScene(scene);
         stage.setOnCloseRequest(e -> closeSession());
@@ -55,10 +62,61 @@ public final class MirrorWindow {
             return;
         }
 
-        new InputForwarder(session.controller(), session.mapper(),
-                center::getWidth, center::getHeight, session.controlExecutor()).attach(center);
+        if (controlEnabled) {
+            new InputForwarder(session.controller(), session.mapper(),
+                    center::getWidth, center::getHeight, session.controlExecutor()).attach(center);
+        }
         scene.setOnKeyPressed(e -> onKey(e.getCode()));
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.S, KeyCombination.CONTROL_DOWN),
+                this::onScreenshot);
         stage.show();
+    }
+
+    private ToolBar buildToolbar() {
+        Button home = new Button("主页");
+        home.setOnAction(e -> run(() -> session.controller().keyHome()));
+        Button back = new Button("返回");
+        back.setOnAction(e -> run(() -> session.controller().keyBack()));
+        Button recent = new Button("最近任务");
+        recent.setOnAction(e -> run(() -> session.controller().keyRecentTasks()));
+        Button power = new Button("电源");
+        power.setOnAction(e -> run(() -> session.controller().keyPower()));
+        Button shot = new Button("截图");
+        shot.setOnAction(e -> onScreenshot());
+        Button rotate = new Button("旋转");
+        rotate.setOnAction(e -> run(() -> {
+            if (session.mapper().isHorizontal()) {
+                session.controller().setRotationVertical();
+                session.mapper().setHorizontal(false);
+            } else {
+                session.controller().setRotationHorizontal();
+                session.mapper().setHorizontal(true);
+            }
+        }));
+        return new ToolBar(home, back, recent, power, new javafx.scene.control.Separator(), shot, rotate);
+    }
+
+    private void run(Runnable action) {
+        if (session != null) {
+            session.controlExecutor().execute(action);
+        }
+    }
+
+    private void onScreenshot() {
+        if (session == null) {
+            return;
+        }
+        session.controlExecutor().execute(() -> {
+            String msg;
+            try {
+                var path = session.saveScreenshot();
+                msg = "截图已保存: " + path;
+            } catch (Exception ex) {
+                msg = "截图失败: " + ex.getMessage();
+            }
+            String finalMsg = msg;
+            javafx.application.Platform.runLater(() -> statusBar.setText(finalMsg));
+        });
     }
 
     private void onKey(KeyCode code) {

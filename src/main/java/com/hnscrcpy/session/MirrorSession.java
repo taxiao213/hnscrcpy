@@ -62,6 +62,32 @@ public final class MirrorSession implements AutoCloseable {
         this.renderScheduler = new RenderScheduler(pump, renderer);
         renderScheduler.setStatsListener(fps -> status("FPS " + fps
                 + " | 解码 " + pump.decodedCount() + " | 丢帧 " + pump.droppedCount()));
+        // 旋转自适应：解码帧宽高比变化时同步映射器
+        renderScheduler.setFrameHook(() -> {
+            var f = pump.latestFrame();
+            if (f != null) {
+                mapper.setHorizontal(f.width() > f.height());
+            }
+        });
+    }
+
+    /** 保存当前画面截图到 ~/Pictures/hnscrcpy/，返回文件路径。 */
+    public java.nio.file.Path saveScreenshot() throws java.io.IOException {
+        var f = pump.latestFrame();
+        if (f == null) {
+            throw new SessionException("尚无画面可截图");
+        }
+        java.nio.file.Path dir = java.nio.file.Path.of(
+                System.getProperty("user.home"), "Pictures", "hnscrcpy");
+        java.nio.file.Files.createDirectories(dir);
+        String ts = new java.text.SimpleDateFormat("yyyyMMdd-HHmmss").format(new java.util.Date());
+        java.nio.file.Path out = dir.resolve("screenshot-" + ts + ".png");
+        var img = new java.awt.image.BufferedImage(f.width(), f.height(),
+                java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        img.setRGB(0, 0, f.width(), f.height(), f.pixels(), 0, f.width());
+        javax.imageio.ImageIO.write(img, "png", out.toFile());
+        log.info("screenshot saved: {}", out);
+        return out;
     }
 
     /** 启动会话；失败抛 SessionException。 */

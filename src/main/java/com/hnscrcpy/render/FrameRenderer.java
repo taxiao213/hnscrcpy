@@ -32,9 +32,14 @@ public final class FrameRenderer {
             image = new WritableImage(pixelBuffer);
             view.setImage(image);
         }
-        buffer.clear();
-        buffer.put(frame.pixels());
-        pixelBuffer.updateBuffer(b -> null);
+        // 必须在 updateBuffer 回调内写入并复位，上传按 position→limit 读取
+        pixelBuffer.updateBuffer(pb -> {
+            IntBuffer b = pb.getBuffer();
+            b.clear();
+            b.put(frame.pixels());
+            b.rewind();
+            return null;
+        });
     }
 
     /** 渲染区域尺寸（未初始化返回 0x0）。 */
