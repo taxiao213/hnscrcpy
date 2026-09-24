@@ -37,9 +37,13 @@ jobs:
       - name: Package (Unix)
         if: runner.os != 'Windows'
         run: ./scripts/build-package.sh
+        env:
+          INSTALLER: "1" # CI 产出安装包；本地默认只出免安装 app-image
       - name: Package (Windows)
         if: runner.os == 'Windows'
         run: ./scripts/build-package.ps1
+        env:
+          INSTALLER: "1"
       - uses: actions/upload-artifact@v4
         with:
           name: hnscrcpy-${{ matrix.os }}

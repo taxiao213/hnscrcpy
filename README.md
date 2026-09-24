@@ -35,9 +35,21 @@
 
 ## 安装与运行
 
-### 安装包（推荐）
+### 直接运行（免安装）
 
-从 Releases 下载对应平台安装包：
+本地构建默认产出可直接运行的 app-image，无需安装：
+
+```bash
+./scripts/build-package.sh     # macOS/Linux
+scripts\build-package.ps1      # Windows
+```
+
+- macOS：`open target/dist/hnscrcpy.app`
+- Windows：运行 `target\dist\hnscrcpy\hnscrcpy.exe`
+
+### 安装包（用于分发）
+
+`INSTALLER=1 ./scripts/build-package.sh`（Windows 设 `$env:INSTALLER=1`）额外生成安装包：
 
 - macOS：`hnscrcpy-<ver>.dmg`（首次打开如提示"未受信任的开发者"，右键 → 打开）
 - Windows：`hnscrcpy-<ver>.exe`
