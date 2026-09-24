@@ -76,7 +76,8 @@ public class MainView {
         HBox settings = new HBox(8, new Label("码率(Mbps):"), bitRateField,
                 new Label("帧率:"), fpsField);
         settings.setAlignment(Pos.CENTER_LEFT);
-        settings.setPadding(new Insets(8, 12, 8, 12));
+        // header 已有统一的 12px 外边距，这里只留垂直间距，保证与上面两行左对齐
+        settings.setPadding(new Insets(8, 0, 8, 0));
         VBox header = new VBox(4, new Label("设备列表（双击投屏）"), statusLabel, settings);
         header.setPadding(new Insets(12));
         root.setTop(header);
