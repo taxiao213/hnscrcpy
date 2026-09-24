@@ -60,6 +60,26 @@ class H264DecoderTest {
         assertThat(hasNalType(units.get(1), 5)).isTrue();
     }
 
+    @Test
+    @DisplayName("parameter-only packet returns null but params still apply to next IDR")
+    void decode_parameterSetsOnly_nullButParamsApplied() throws Exception {
+        byte[] sample;
+        try (InputStream in = getClass().getResourceAsStream("/sample1.h264")) {
+            sample = in.readAllBytes();
+        }
+        List<byte[]> units = H264Decoder.splitAccessUnits(sample);
+        assertThat(H264Decoder.hasVclNal(units.get(0))).isFalse();
+        assertThat(H264Decoder.hasVclNal(units.get(1))).isTrue();
+
+        try (H264Decoder decoder = new H264Decoder()) {
+            // FFmpeg 对只含 SPS/PPS 的包返回 INVALIDDATA（"no frame!"），属正常路径
+            assertThat(decoder.decode(units.get(0))).isNull();
+            VideoFrame idr = decoder.decode(units.get(1));
+            assertThat(idr).isNotNull();
+            assertThat(idr.width()).isEqualTo(1272);
+        }
+    }
+
     private static boolean hasNalType(byte[] au, int type) {
         for (int i = 0; i + 4 < au.length; i++) {
             if (au[i] == 0 && au[i + 1] == 0 && au[i + 2] == 0 && au[i + 3] == 1

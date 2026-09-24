@@ -89,10 +89,35 @@ public final class H264Decoder implements AutoCloseable {
         int ret = avcodec_send_packet(ctx, packet);
         av_packet_unref(packet);
         if (ret < 0) {
-            log.warn("send_packet failed: {}", ret);
+            // FFmpeg 对只含 SPS/PPS 的包会解析参数但不产出帧，返回 INVALIDDATA——
+            // 参数已生效，属正常路径，降级为 debug；含 VCL 的失败才是真异常
+            if (hasVclNal(annexB)) {
+                log.warn("send_packet failed: {}", ret);
+            } else {
+                log.debug("parameter-only packet consumed: {}", ret);
+            }
             return null;
         }
         return receiveOne();
+    }
+
+    /** 是否含 VCL NAL（slice，类型 1/5）。 */
+    static boolean hasVclNal(byte[] data) {
+        int n = data.length;
+        int i = 0;
+        while (i + 4 < n) {
+            if (data[i] == 0 && data[i + 1] == 0 && (data[i + 2] == 1
+                    || (data[i + 2] == 0 && data[i + 3] == 1))) {
+                int nalType = data[data[i + 2] == 1 ? i + 3 : i + 4] & 0x1f;
+                if (nalType == 1 || nalType == 5) {
+                    return true;
+                }
+                i += 4;
+            } else {
+                i++;
+            }
+        }
+        return false;
     }
 
     private VideoFrame receiveOne() {
