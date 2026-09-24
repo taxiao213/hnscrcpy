@@ -119,6 +119,13 @@ public final class MirrorWindow {
                     () -> view.getLayoutBounds().getWidth(),
                     () -> view.getLayoutBounds().getHeight(),
                     session.controlExecutor()).attach(view);
+            // 诊断：scene 级过滤器观察事件实际到达的目标节点
+            scene.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, e ->
+                    log.debug("scene press target={} at ({},{})",
+                            e.getTarget().getClass().getSimpleName(), e.getSceneX(), e.getSceneY()));
+            log.debug("InputForwarder attached to view");
+        } else {
+            log.warn("mirror window opened WITHOUT control (InputForwarder not attached)");
         }
         registerAccelerators(scene, toolbar);
         stage.show();

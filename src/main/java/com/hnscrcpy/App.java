@@ -81,7 +81,7 @@ public class App extends Application {
         config.setBitRateMbps(mainView.videoConfig().bitRateMbps());
         config.setFps(mainView.videoConfig().fps());
         config.save();
-        new MirrorWindow().open(device, mainView.videoConfig(), noControl);
+        new MirrorWindow().open(device, mainView.videoConfig(), !noControl);
     }
 
     public static void main(String[] args) {
