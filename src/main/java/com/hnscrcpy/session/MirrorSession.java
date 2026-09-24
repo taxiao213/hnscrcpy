@@ -1,26 +1,41 @@
 package com.hnscrcpy.session;
 
+import com.hnscrcpy.control.CoordinateMapper;
+import com.hnscrcpy.control.DeviceController;
 import com.hnscrcpy.decode.DecoderPump;
+import com.hnscrcpy.device.HdcClient;
+import com.hnscrcpy.device.HdcLocator;
+import com.hnscrcpy.device.HosScrcpyLocator;
 import com.hnscrcpy.render.FrameRenderer;
 import com.hnscrcpy.render.RenderScheduler;
+import com.hnscrcpy.stream.HosScrcpyBridge;
 import com.hnscrcpy.stream.HosScrcpyStream;
 import com.hnscrcpy.stream.VideoConfig;
+import javafx.scene.image.ImageView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Path;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 /**
- * 一次投屏会话：流 → 解码泵 → 渲染调度。状态机：IDLE → STREAMING → CLOSED / ERROR。
- * close 幂等，负责全链路清理。
+ * 一次投屏会话：桥 → 流 → 解码泵 → 渲染调度 + 控制通道。
+ * 状态机：IDLE → STREAMING → CLOSED / ERROR。close 幂等，负责全链路清理。
  */
 public final class MirrorSession implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(MirrorSession.class);
+    private static final int[] FALLBACK_SCREEN = {1080, 2400};
 
     public enum State { IDLE, STREAMING, ERROR, CLOSED }
 
+    private final HosScrcpyBridge bridge;
     private final HosScrcpyStream stream;
+    private final DeviceController controller;
+    private final CoordinateMapper mapper;
+    private final ExecutorService controlExecutor;
     private final DecoderPump pump = new DecoderPump();
     private final FrameRenderer renderer = new FrameRenderer();
     private final RenderScheduler renderScheduler;
@@ -29,14 +44,27 @@ public final class MirrorSession implements AutoCloseable {
     private volatile State state = State.IDLE;
 
     public MirrorSession(String sn, VideoConfig config, Consumer<String> statusListener) {
-        this.stream = new HosScrcpyStream(sn, config);
-        this.renderScheduler = new RenderScheduler(pump, renderer);
         this.statusListener = statusListener;
+        Path jar = HosScrcpyLocator.locate()
+                .orElseThrow(() -> new SessionException(HosScrcpyLocator.guidance()));
+        Path hdcPath = HdcLocator.locate();
+        this.bridge = HosScrcpyBridge.open(jar, sn, hdcPath.toString(), config);
+        this.stream = new HosScrcpyStream(bridge, sn);
+        HdcClient hdc = new HdcClient(hdcPath);
+        this.controller = new DeviceController(bridge, hdc, sn);
+        int[] screen = hdc.screenSize(sn).orElse(FALLBACK_SCREEN);
+        this.mapper = new CoordinateMapper(screen[0], screen[1]);
+        this.controlExecutor = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "control-channel");
+            t.setDaemon(true);
+            return t;
+        });
+        this.renderScheduler = new RenderScheduler(pump, renderer);
         renderScheduler.setStatsListener(fps -> status("FPS " + fps
                 + " | 解码 " + pump.decodedCount() + " | 丢帧 " + pump.droppedCount()));
     }
 
-    /** 启动会话；渲染节点由 getView() 提供。失败抛 SessionException。 */
+    /** 启动会话；失败抛 SessionException。 */
     public void start() {
         if (state != State.IDLE) {
             throw new IllegalStateException("session already started: " + state);
@@ -49,7 +77,7 @@ public final class MirrorSession implements AutoCloseable {
             state = State.ERROR;
             pump.close();
             status("连接失败: " + e.getMessage());
-            throw e instanceof SessionException e1 ? e1 : new SessionException(e.getMessage(), e);
+            throw e instanceof SessionException se ? se : new SessionException(e.getMessage(), e);
         }
         renderScheduler.start();
         state = State.STREAMING;
@@ -57,8 +85,20 @@ public final class MirrorSession implements AutoCloseable {
         log.info("mirror session started, state=STREAMING");
     }
 
-    public javafx.scene.image.ImageView getView() {
+    public ImageView getView() {
         return renderer.getView();
+    }
+
+    public DeviceController controller() {
+        return controller;
+    }
+
+    public CoordinateMapper mapper() {
+        return mapper;
+    }
+
+    public ExecutorService controlExecutor() {
+        return controlExecutor;
     }
 
     public State state() {
@@ -78,6 +118,8 @@ public final class MirrorSession implements AutoCloseable {
         renderScheduler.stop();
         stream.stop();
         pump.close();
+        controlExecutor.shutdownNow();
+        bridge.close();
         status("已断开");
         log.info("mirror session closed");
     }
