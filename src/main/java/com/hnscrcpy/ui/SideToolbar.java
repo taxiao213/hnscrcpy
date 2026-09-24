@@ -38,6 +38,8 @@ public final class SideToolbar extends VBox {
 
     private static final double ICON = 19;
     private static final double MENU_ICON = 15;
+    /** 菜单图标统一格宽：图标内容宽度不一，固定格子让文字左对齐 */
+    private static final double MENU_ICON_CELL = 20;
 
     private final Actions actions;
     private final Popup menu = new Popup();
@@ -137,7 +139,7 @@ public final class SideToolbar extends VBox {
     private HBox menuRow(MenuEntry entry) {
         var label = new javafx.scene.control.Label(entry.label());
         label.getStyleClass().add("menu-label");
-        HBox row = new HBox(entry.icon(), label);
+        HBox row = new HBox(iconCell(entry.icon()), label);
         row.setAlignment(Pos.CENTER_LEFT);
         row.setSpacing(10);
         row.getStyleClass().add("menu-row");
@@ -153,6 +155,15 @@ public final class SideToolbar extends VBox {
             entry.action().run();
         });
         return row;
+    }
+
+    /** 菜单图标外套固定宽度格子（内容居中），保证各行文字起点一致。 */
+    private static javafx.scene.layout.StackPane iconCell(javafx.scene.Node icon) {
+        var cell = new javafx.scene.layout.StackPane(icon);
+        cell.setMinWidth(MENU_ICON_CELL);
+        cell.setPrefWidth(MENU_ICON_CELL);
+        cell.setMaxWidth(MENU_ICON_CELL);
+        return cell;
     }
 
     private static Button iconButton(Group icon, String tooltip) {
