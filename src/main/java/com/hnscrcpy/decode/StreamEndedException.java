@@ -7,3 +7,4 @@ public final class StreamEndedException extends RuntimeException {
         super("video stream ended");
     }
 }
+

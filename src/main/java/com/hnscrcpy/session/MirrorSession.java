@@ -3,6 +3,7 @@ package com.hnscrcpy.session;
 import com.hnscrcpy.control.CoordinateMapper;
 import com.hnscrcpy.control.DeviceController;
 import com.hnscrcpy.decode.DecoderPump;
+import com.hnscrcpy.decode.StreamStalledException;
 import com.hnscrcpy.device.HdcClient;
 import com.hnscrcpy.device.HdcLocator;
 import com.hnscrcpy.device.HosScrcpyLocator;
@@ -19,8 +20,10 @@ import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /**
@@ -36,6 +39,12 @@ public final class MirrorSession implements AutoCloseable {
     private static final long MAX_RECONNECT_DELAY_MS = 10_000;
     /** 设备侧 scrcpy 进程退出需要约 2s，重启前必须等待，防新旧实例冲突。 */
     private static final long RECONNECT_SETTLE_MS = 2_000;
+    /**
+     * 静默断流看门狗间隔。设备侧退出（screen exit / 被新会话抢占）时 gRPC 可能
+     * 无任何异常回调，流只是静默无帧；每间隔请求一次 IDR（静态画面也会被强制
+     * 推一帧），连续两轮无新帧即判死重连。
+     */
+    private static final long WATCHDOG_INTERVAL_MS = 10_000;
 
     public enum State { IDLE, STREAMING, ERROR, CLOSED }
 
@@ -50,6 +59,8 @@ public final class MirrorSession implements AutoCloseable {
     private final Consumer<String> statusListener;
     private final ScheduledExecutorService reconnectScheduler;
     private final AtomicInteger reconnectAttempts = new AtomicInteger();
+    private final AtomicLong watchdogLastDecoded = new AtomicLong(-1);
+    private ScheduledFuture<?> watchdogTask;
 
     private volatile State state = State.IDLE;
 
@@ -124,6 +135,7 @@ public final class MirrorSession implements AutoCloseable {
         renderScheduler.start();
         state = State.STREAMING;
         status("投屏中");
+        startWatchdog();
         log.info("mirror session started, state=STREAMING");
     }
 
@@ -196,11 +208,42 @@ public final class MirrorSession implements AutoCloseable {
             reconnectAttempts.set(0);
             state = State.STREAMING;
             status("投屏中");
+            startWatchdog();
             log.info("stream reconnected");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (RuntimeException e) {
             log.warn("reconnect attempt failed: {}", e.toString());
+            onStreamFailure(e);
+        }
+    }
+
+    private void startWatchdog() {
+        watchdogLastDecoded.set(-1);
+        if (watchdogTask != null) {
+            watchdogTask.cancel(false);
+        }
+        watchdogTask = reconnectScheduler.scheduleWithFixedDelay(this::watchdogTick,
+                WATCHDOG_INTERVAL_MS, WATCHDOG_INTERVAL_MS, TimeUnit.MILLISECONDS);
+    }
+
+    private void watchdogTick() {
+        if (state != State.STREAMING) {
+            watchdogLastDecoded.set(-1);
+            return;
+        }
+        long decoded = pump.decodedCount();
+        if (decoded == watchdogLastDecoded.get()) {
+            log.warn("no new frame within {}ms despite IDR request, stream stalled",
+                    WATCHDOG_INTERVAL_MS);
+            onStreamFailure(new StreamStalledException());
+            return;
+        }
+        watchdogLastDecoded.set(decoded);
+        try {
+            stream.requestIDRFrame();
+        } catch (RuntimeException e) {
+            log.warn("requestIDRFrame failed: {}", e.toString());
             onStreamFailure(e);
         }
     }
@@ -212,6 +255,9 @@ public final class MirrorSession implements AutoCloseable {
         }
         state = State.CLOSED;
         renderScheduler.stop();
+        if (watchdogTask != null) {
+            watchdogTask.cancel(false);
+        }
         reconnectScheduler.shutdownNow();
         stream.stop();
         pump.close();

@@ -70,6 +70,10 @@ public final class MirrorWindow {
 
         StackPane screenHolder = new StackPane(view);
         screenHolder.setPadding(new Insets(18, 10, 14, 18));
+        // 关键：钉死 min/pref，切断「ImageView 当前大小 → 父级 pref → 更多空间分配」
+        // 正反馈，否则窗口逐帧无限放大（实测每脉冲 +512px）
+        screenHolder.setMinSize(0, 0);
+        screenHolder.setPrefSize(0, 0);
         view.fitWidthProperty().bind(screenHolder.widthProperty());
         view.fitHeightProperty().bind(screenHolder.heightProperty());
 
