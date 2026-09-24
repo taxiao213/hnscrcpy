@@ -210,11 +210,16 @@ public final class MirrorWindow {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("关于 hnscrcpy");
         alert.setHeaderText("hnscrcpy " + com.hnscrcpy.App.VERSION);
-        String deviceText = device != null ? device.displayName() + "（" + device.serial() + "）" : "未连接";
+        // displayName 已包含序列号，不再重复拼接
+        String deviceText = device != null ? device.displayName() : "未连接";
         alert.setContentText("鸿蒙 NEXT 投屏远控工具\n设备: " + deviceText
                 + "\n\n视频源: hosScrcpy H.264 流 · avcodec 直解渲染"
                 + "\n\n作者: 微信公众号「他晓」\nGitHub: https://github.com/taxiao213");
         alert.initOwner(stage);
+        // 弹窗样式与主窗口一致（默认 Modena 蓝按钮与整体风格不搭）
+        var pane = alert.getDialogPane();
+        pane.getStyleClass().add("about-dialog");
+        pane.getStylesheets().add(toolbarStylesheetUrl());
         alert.showAndWait();
     }
 
@@ -263,6 +268,16 @@ public final class MirrorWindow {
                 .menu-label { -fx-text-fill: #2c2c31; -fx-font-size: 13; }
                 .menu-shortcut { -fx-text-fill: #9a9aa2; -fx-font-size: 12; }
                 .menu-sep { -fx-background-color: #ececf0; }
+                .about-dialog { -fx-background-color: #fbfbfc; }
+                .about-dialog .button {
+                    -fx-background-color: #2c2c31;
+                    -fx-text-fill: #f7f7f9;
+                    -fx-background-radius: 8;
+                    -fx-padding: 6 22 6 22;
+                    -fx-cursor: hand;
+                }
+                .about-dialog .button:hover { -fx-background-color: #45454d; }
+                .about-dialog .button:pressed { -fx-background-color: #1e1e22; }
                 """;
     }
 
