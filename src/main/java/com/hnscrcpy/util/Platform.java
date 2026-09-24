@@ -48,14 +48,14 @@ public final class Platform {
     }
 
     /**
-     * 平台目录名：mac-arm64 / mac-x64 / windows-x64 / linux-x64。
+     * 平台目录名：mac-arm64 / mac-x64 / windows-x64 / linux-64。
      * 未知组合抛异常（不支持的平台不应走到这里）。
      */
     public static String platformDir() {
         return switch (os()) {
             case MACOS -> arch() == Arch.AARCH64 ? "mac-arm64" : "mac-x64";
             case WINDOWS -> "windows-x64";
-            case LINUX -> "linux-x64";
+            case LINUX -> "linux-64";
             default -> throw new IllegalStateException("unsupported OS: " + System.getProperty("os.name"));
         };
     }

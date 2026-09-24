@@ -32,11 +32,11 @@ class PlatformOverrideTest {
     }
 
     @Test
-    @DisplayName("linux aarch64 resolves to linux-x64")
+    @DisplayName("linux aarch64 resolves to linux-64")
     void linux_aarch64() {
         withProps("Linux", "aarch64", () -> {
             assertThat(Platform.os()).isEqualTo(Platform.Os.LINUX);
-            assertThat(Platform.platformDir()).isEqualTo("linux-x64");
+            assertThat(Platform.platformDir()).isEqualTo("linux-64");
             assertThat(Platform.libusbLibraryName()).isEqualTo("libusb_shared.so");
         });
     }
