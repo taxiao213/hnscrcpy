@@ -120,8 +120,11 @@ class InputForwarderLayoutTest {
 
                 DeviceController ctl = new DeviceController(bridge, new FakeHdc(), "SN99");
                 CoordinateMapper mapper = new CoordinateMapper(1272, 2860);
-                new InputForwarder(ctl, mapper, holder::getWidth, holder::getHeight,
-                        controlExecutor).attach(holder);
+                // 与 MirrorWindow 一致：挂在 ImageView 上，坐标无 padding/居中偏移
+                new InputForwarder(ctl, mapper,
+                        () -> view.getLayoutBounds().getWidth(),
+                        () -> view.getLayoutBounds().getHeight(),
+                        controlExecutor).attach(view);
 
                 // 等一帧布局完成后，在画面中心按下
                 Platform.runLater(() -> {

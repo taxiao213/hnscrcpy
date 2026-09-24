@@ -178,6 +178,34 @@ public final class H264Decoder implements AutoCloseable {
         return units;
     }
 
+    /**
+     * 判断一条消息是否为纯参数集（含 SPS/PPS、无 VCL slice）。
+     * hosScrcpy 首条 gRPC 消息即此形态（约 33 字节），且 IDR 不内嵌参数集——
+     * 重连后设备侧可能不重发，需客户端缓存并在解码失败时回灌。
+     */
+    public static boolean isParameterSets(byte[] data) {
+        boolean hasParams = false;
+        int n = data.length;
+        int i = 0;
+        while (i + 4 < n) {
+            if (data[i] == 0 && data[i + 1] == 0 && (data[i + 2] == 1
+                    || (data[i + 2] == 0 && data[i + 3] == 1))) {
+                int nalPos = data[i + 2] == 1 ? i + 3 : i + 4;
+                int nalType = data[nalPos] & 0x1f;
+                if (nalType == 1 || nalType == 5) {
+                    return false;
+                }
+                if (nalType == 7 || nalType == 8) {
+                    hasParams = true;
+                }
+                i = nalPos + 1;
+            } else {
+                i++;
+            }
+        }
+        return hasParams;
+    }
+
     @Override
     public void close() {
         if (sws != null) {

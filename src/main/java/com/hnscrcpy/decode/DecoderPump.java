@@ -39,6 +39,9 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
     private Thread pumpThread;
     private volatile boolean running;
     private volatile Consumer<Throwable> errorHandler = t -> { };
+    /** 最近一条纯参数集消息（首包）。跨重连保留：IDR 不内嵌参数集，重连后设备侧可能不重发。 */
+    private volatile byte[] paramSets;
+    private volatile boolean paramsInjected;
 
     /** 流异常/结束回调（gRPC 线程调用）；由会话层接管重连。 */
     public void setErrorHandler(Consumer<Throwable> handler) {
@@ -53,6 +56,7 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
             pending.clear(); // 重连时丢弃旧流残留帧（新解码器无 SPS/PPS，解不了）
         }
         running = true;
+        paramsInjected = false;
         decoder = new H264Decoder();
         pumpThread = new Thread(this::pumpLoop, "decoder-pump");
         pumpThread.setDaemon(true);
@@ -68,6 +72,9 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
 
     @Override
     public void onH264Frame(byte[] data) {
+        if (H264Decoder.isParameterSets(data)) {
+            paramSets = data;
+        }
         synchronized (queueLock) {
             if (pending.size() >= QUEUE_CAPACITY) {
                 pending.poll();
@@ -99,18 +106,30 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
             if (chunk == null) {
                 continue;
             }
-            VideoFrame f;
-            try {
-                f = decoder.decode(chunk);
-            } catch (RuntimeException e) {
-                log.warn("decode failed: {}", e.toString());
-                continue;
+            VideoFrame f = tryDecode(chunk);
+            if (f == null && paramSets != null && !paramsInjected
+                    && !H264Decoder.isParameterSets(chunk)) {
+                // 重连后设备侧可能不重发 SPS/PPS（IDR 也不内嵌），解码器缺参数集
+                // 会持续性 INVALIDDATA；回灌缓存的参数集后重试一次
+                paramsInjected = true;
+                log.info("decode failed without params, injecting cached SPS/PPS");
+                tryDecode(paramSets);
+                f = tryDecode(chunk);
             }
             if (f != null) {
                 decodedCount.incrementAndGet();
                 latest.set(new VideoFrame(f.width(), f.height(), f.pixels(), f.ptsMicros(),
                         sequence.incrementAndGet()));
             }
+        }
+    }
+
+    private VideoFrame tryDecode(byte[] chunk) {
+        try {
+            return decoder.decode(chunk);
+        } catch (RuntimeException e) {
+            log.warn("decode failed: {}", e.toString());
+            return null;
         }
     }
 

@@ -114,9 +114,11 @@ public final class MirrorWindow {
         }
 
         if (controlEnabled) {
+            // 挂在 ImageView 上：事件坐标即画面坐标，映射无 padding/居中偏移
             new InputForwarder(session.controller(), session.mapper(),
-                    screenHolder::getWidth, screenHolder::getHeight,
-                    session.controlExecutor()).attach(screenHolder);
+                    () -> view.getLayoutBounds().getWidth(),
+                    () -> view.getLayoutBounds().getHeight(),
+                    session.controlExecutor()).attach(view);
         }
         registerAccelerators(scene, toolbar);
         stage.show();

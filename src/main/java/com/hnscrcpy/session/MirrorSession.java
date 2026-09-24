@@ -61,6 +61,8 @@ public final class MirrorSession implements AutoCloseable {
     private final ScheduledExecutorService reconnectScheduler;
     private final AtomicInteger reconnectAttempts = new AtomicInteger();
     private final AtomicLong watchdogLastDecoded = new AtomicLong(-1);
+    private final java.util.concurrent.atomic.AtomicBoolean reconnectPending =
+            new java.util.concurrent.atomic.AtomicBoolean();
     private ScheduledFuture<?> watchdogTask;
 
     private volatile State state = State.IDLE;
@@ -179,9 +181,13 @@ public final class MirrorSession implements AutoCloseable {
         }
     }
 
-    /** 流异常/结束（gRPC 线程）：进入 ERROR 并排队指数退避重连。 */
+    /** 流异常/结束（gRPC 线程）：进入 ERROR 并排队指数退避重连；并发失败合并为一次重连。 */
     private void onStreamFailure(Throwable t) {
         if (state != State.STREAMING && state != State.ERROR) {
+            return;
+        }
+        if (!reconnectPending.compareAndSet(false, true)) {
+            log.debug("reconnect already scheduled, coalescing: {}", t.toString());
             return;
         }
         state = State.ERROR;
@@ -191,11 +197,14 @@ public final class MirrorSession implements AutoCloseable {
                 : SLOW_RETRY_MS;
         status("连接中断，" + (delay / 1000) + "s 后重连（第 " + attempt + " 次）…");
         log.info("stream failure, reconnect attempt {} in {}ms: {}", attempt, delay, t.toString());
-        reconnectScheduler.schedule(this::reconnect, delay, TimeUnit.MILLISECONDS);
+        reconnectScheduler.schedule(() -> {
+            reconnectPending.set(false);
+            reconnect();
+        }, delay, TimeUnit.MILLISECONDS);
     }
 
     private void reconnect() {
-        if (state == State.CLOSED) {
+        if (state == State.CLOSED || state == State.STREAMING) {
             return;
         }
         try {
