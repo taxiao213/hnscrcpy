@@ -114,6 +114,32 @@
                 <version>3.2.5</version>
             </plugin>
             <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version>
+                <configuration>
+                    <excludes>
+                        <!-- UI/会话装配层由真机冒烟与截图验证覆盖，不计入分母 -->
+                        <exclude>com/hnscrcpy/App.class</exclude>
+                        <exclude>com/hnscrcpy/Launcher.class</exclude>
+                        <exclude>com/hnscrcpy/ui/*</exclude>
+                        <exclude>com/hnscrcpy/session/*</exclude>
+                        <!-- JDK 内部类，jacoco 在 JDK 25 下无法插桩，静默 -->
+                        <exclude>sun/util/resources/cldr/**</exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals><goal>prepare-agent</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals><goal>report</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <groupId>org.openjfx</groupId>
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>

@@ -45,4 +45,23 @@ class HosScrcpyLocatorTest {
     void scanRoot_emptyRoot_returnsEmpty(@TempDir Path root) {
         assertThat(HosScrcpyLocator.scanRoot(root)).isEmpty();
     }
+
+    @Test
+    @DisplayName("scanRoot scans every IDE dir under the root")
+    void scanRoot_multipleIdes_findsAny(@TempDir Path root) throws IOException {
+        Path libA = root.resolve("DevEcoStudio/plugins/DevecoTesting-Hypium/lib");
+        Files.createDirectories(libA);
+        Files.createFile(libA.resolve("hosScrcpy-2.0.0.jar"));
+        Path other = root.resolve("IntelliJIdea2024.1/plugins/other-plugin/lib");
+        Files.createDirectories(other);
+        Files.createFile(other.resolve("unrelated.jar"));
+        assertThat(HosScrcpyLocator.scanRoot(root)).isPresent();
+    }
+
+    @Test
+    @DisplayName("scanRoot returns empty when Hypium plugin absent")
+    void scanRoot_noHypium_returnsEmpty(@TempDir Path root) throws IOException {
+        Files.createDirectories(root.resolve("IntelliJIdea2024.1/plugins/other-plugin/lib"));
+        assertThat(HosScrcpyLocator.scanRoot(root)).isEmpty();
+    }
 }

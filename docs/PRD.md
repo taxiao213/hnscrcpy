@@ -13,7 +13,7 @@ hnscrcpy 是一个类似 scrcpy 的桌面工具：在 Windows / macOS(arm64) / m
 | 维度 | harmony-screencap | hnscrcpy |
 |------|-------------------|----------|
 | 形态 | Spring Boot 服务 + 浏览器前端 | 单个原生二进制 + 桌面窗口 |
-| 视频链路 | hosScrcpy H.264 → WebSocket → WebCodecs | hosScrcpy H.264 → JavaCV 解码 → JavaFX 渲染（全本地，无网络中转） |
+| 视频链路 | hosScrcpy H.264 → WebSocket → WebCodecs | hosScrcpy H.264 → FFmpeg/avcodec 解码 → JavaFX 渲染（全本地，无网络中转） |
 | 视频源 | 双模式（H.264 / JPEG 截图回退） | 仅 H.264 流（hosScrcpy） |
 | 远控 | REST API + uinput | 窗口事件直接映射 uinput |
 | 分发 | jar + 脚本 | jpackage 三平台安装包 + CI |

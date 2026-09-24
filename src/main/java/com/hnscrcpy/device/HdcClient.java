@@ -22,10 +22,22 @@ public class HdcClient {
     private static final Pattern SCREEN_SIZE = Pattern.compile("activeMode:\\s*(\\d+)x(\\d+)");
     private static final Pattern REFRESH_RATE = Pattern.compile("refresh[Rr]ate[=:]\\s*(\\d+)");
 
+    /** 命令执行 seam：测试注入脚本化实现。 */
+    @FunctionalInterface
+    interface CommandRunner {
+        ProcessRunner.Result run(List<String> command, long timeoutSec);
+    }
+
     private final Path hdc;
+    private final CommandRunner runner;
 
     public HdcClient(Path hdc) {
+        this(hdc, (cmd, timeoutSec) -> ProcessRunner.run(cmd, timeoutSec, TimeUnit.SECONDS));
+    }
+
+    HdcClient(Path hdc, CommandRunner runner) {
         this.hdc = hdc;
+        this.runner = runner;
     }
 
     public HdcClient() {
@@ -63,7 +75,7 @@ public class HdcClient {
     }
 
     public List<String> listTargets() {
-        ProcessRunner.Result r = ProcessRunner.run(List.of(hdc.toString(), "list", "targets"));
+        ProcessRunner.Result r = runner.run(List.of(hdc.toString(), "list", "targets"), 30);
         if (!r.ok()) {
             log.warn("hdc list targets failed: {}", r.output().trim());
             return List.of();
@@ -77,14 +89,14 @@ public class HdcClient {
     }
 
     public String shell(String sn, String command, long timeoutSec) {
-        ProcessRunner.Result r = ProcessRunner.run(
-                List.of(hdc.toString(), "-t", sn, "shell", command), timeoutSec, TimeUnit.SECONDS);
+        ProcessRunner.Result r = runner.run(
+                List.of(hdc.toString(), "-t", sn, "shell", command), timeoutSec);
         return r.output().trim();
     }
 
     public boolean fport(String sn, int localPort, String remote) {
-        ProcessRunner.Result r = ProcessRunner.run(
-                List.of(hdc.toString(), "-t", sn, "fport", "tcp:" + localPort, remote), 15, TimeUnit.SECONDS);
+        ProcessRunner.Result r = runner.run(
+                List.of(hdc.toString(), "-t", sn, "fport", "tcp:" + localPort, remote), 15);
         if (!r.ok()) {
             log.warn("fport tcp:{} -> {} failed: {}", localPort, remote, r.output().trim());
         }
@@ -92,15 +104,14 @@ public class HdcClient {
     }
 
     public boolean fportRemove(String sn, int localPort) {
-        ProcessRunner.Result r = ProcessRunner.run(
-                List.of(hdc.toString(), "-t", sn, "fport", "rm", "tcp:" + localPort), 15, TimeUnit.SECONDS);
+        ProcessRunner.Result r = runner.run(
+                List.of(hdc.toString(), "-t", sn, "fport", "rm", "tcp:" + localPort), 15);
         return r.ok();
     }
 
     public boolean fileSend(String sn, Path local, String remotePath) {
-        ProcessRunner.Result r = ProcessRunner.run(
-                List.of(hdc.toString(), "-t", sn, "file", "send", local.toString(), remotePath),
-                60, TimeUnit.SECONDS);
+        ProcessRunner.Result r = runner.run(
+                List.of(hdc.toString(), "-t", sn, "file", "send", local.toString(), remotePath), 60);
         if (!r.ok()) {
             log.warn("file send {} -> {} failed: {}", local, remotePath, r.output().trim());
         }

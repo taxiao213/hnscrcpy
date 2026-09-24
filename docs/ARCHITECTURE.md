@@ -7,9 +7,9 @@
 
 | 组件 | 选型 | 理由 |
 |------|------|------|
-| 语言 | Java 21 (LTS) | 复用 hosScrcpy jar（Java API） |
+| 语言 | Java 17 (LTS) | 复用 hosScrcpy jar（Java API）；本地工具链上限 17.0.19，JavaFX 21 兼容 17+ |
 | UI | JavaFX 21 (LTS) | 官方跨平台桌面框架，jpackage 原生打包成熟 |
-| 视频解码 | JavaCV 1.5.11 (FFmpeg 7.1) | spike 已验证：裸 Annex B 解码 1272x2860 @128fps |
+| 视频解码 | JavaCPP FFmpeg 7.1（avcodec 直解） | grabber 的 find_stream_info 在裸 h264 直播管道阻塞到 EOF；每 gRPC 消息即完整 AU，直解最低延迟 |
 | 设备流 | hosScrcpy-1.0.15-beta.jar（不随包分发，运行时自动发现） | 真机验证的全链路 H.264 流通道 |
 | 设备通信 | hdc（内嵌三平台二进制 + libusb 动态库） | 与参考项目一致 |
 | 构建 | Maven + javafx-maven-plugin + jpackage | 三平台 CI 标准配方 |
@@ -33,7 +33,7 @@
 │    按屏幕变化推送)     │   按键 → hdc shell uinput -K        │
 │       ↓ 有界队列       │       ↑                             │
 │  H264Decoder          │  InputForwarder（move 节流 ≤60Hz）  │
-│   (JavaCV/FFmpeg)     │       ↑                             │
+│   (FFmpeg/avcodec)      │       ↑                             │
 │       ↓ BGRA Frame    │  CoordinateMapper                   │
 │  FrameRenderer        │   窗口坐标 → 设备坐标               │
 │   (PixelBuffer 零拷贝)│                                     │
@@ -63,8 +63,9 @@ src/main/java/com/hnscrcpy/
 │   ├── VideoConfig.java         # frameRate / bitRate(Mbps) / iFrameInterval（映射 HosRemoteConfig）
 │   └── FrameSink.java           # 回调：onVideoSize(w,h) / onFrame(byte[] annexB) / onError(t)
 ├── decode/
-│   ├── H264Decoder.java         # 裸流解码（spike 验证 FFmpegFrameGrabber+setFormat("h264") 可行；
-│   │                            #   正式实现用自定义 IO 管道喂 Annex B，避免 grabber 文件语义）
+│   ├── H264Decoder.java         # avcodec 直解（send_packet/receive_frame + sws→ARGB）；
+│   │                            #   不用 FFmpegFrameGrabber：裸 h264 直播管道上 find_stream_info
+│   │                            #   会阻塞到 EOF（fps 估算需读完整流），实测所有 demuxer 选项无效
 │   ├── VideoFrame.java          # 解码输出：BGRA byte[] + 宽高 + pts
 │   └── DecoderPump.java         # 独立线程：队列取 AnnexB → 解码 → 回调渲染；有界队列丢旧帧
 ├── render/
@@ -165,26 +166,27 @@ MirrorSession.close() 必须完成：
 ## 6. 打包架构
 
 ```
-CI (GitHub Actions matrix)
-  windows-latest  → jpackage --type msi   → hnscrcpy-<ver>-windows-x64.msi
-  macos-14        → jpackage --type dmg   → hnscrcpy-<ver>-macos-arm64.dmg
-  macos-13        → jpackage --type dmg   → hnscrcpy-<ver>-macos-x64.dmg
+CI (GitHub Actions matrix，见 .github/workflows/build.yml)
+  windows-latest  → jpackage --type exe   → hnscrcpy-<ver>.exe
+  macos-14        → jpackage --type dmg   → hnscrcpy-<ver>.dmg
+  macos-13        → jpackage --type dmg   → hnscrcpy-<ver>.dmg
 
-每个 job 内：
-  1. 下载对应平台 OpenJFX SDK（Gluon）+ jlink 最小运行时
-  2. mvn package；依赖拷贝到 target/libs
+每个 job 内（scripts/build-package.sh / .ps1）：
+  1. mvn package；依赖拷贝到 target/libs
      （javacpp/ffmpeg/openblas 仅本平台 classifier；slf4j 等；不含 grpc/netty/protobuf！）
-  3. 拷贝平台 hdc 二进制 + libusb 到 app resources
-  4. jpackage --input target/libs --main-jar hnscrcpy.jar --runtime-image ...
-  5. 上传 artifact；tag 时发 Release
+  2. jpackage --input target/libs --main-jar hnscrcpy.jar
+     --main-class com.hnscrcpy.Launcher（默认运行时，不 jlink）
+  3. 上传 artifact；tag 时发 Release
 ```
 
 - **hosScrcpy jar 不进包**（华为组件无再分发授权）：首次启动自动扫描
   `~/Library/Application Support/JetBrains/*/plugins/DevecoTesting-Hypium/lib/`（macOS）、
   Windows/Linux 对应插件目录；找不到则引导用户安装 DevEco Testing 插件或手动放置到
-  `~/.hnscrcpy/lib/hosScrcpy.jar`。
-- JavaCV natives 按平台裁剪（classifier），产物只含本平台 ffmpeg/openblas。
-- 应用为非模块化 classpath 应用；jlink 只裁剪 JDK 本身。
+  `~/.hnscrcpy/lib/hosScrcpy.jar`（或设 `HOS_SCRCPY_JAR` 环境变量）。
+- JavaCPP natives 按平台裁剪（classifier），产物只含本平台 ffmpeg/openblas。
+- 应用为非模块化 classpath 应用，JavaFX 走 classpath；入口 `Launcher`（主类继承 Application
+  直接启动会报"缺少 JavaFX 运行时组件"）。
+- 三平台 hdc 二进制 + libusb 已随 resources 打进应用 jar，运行时释放到 `~/.hnscrcpy/tools/`。
 - macOS 签名/公证：v1 自签名 + README 说明；预留证书签名接入。
 
 ## 7. 调研项（M0 已全部关闭）
@@ -202,7 +204,7 @@ CI (GitHub Actions matrix)
 
 | 编号 | 风险 | 缓解 |
 |------|------|------|
-| R-1 | ~~JavaCV 裸流兼容性~~ | ✅ M0 spike 通过（FFmpegFrameGrabber+setFormat("h264")，128fps 解码 1272x2860） |
+| R-1 | ~~JavaCV 裸流兼容性~~ | ✅ 已解决：grabber 直播管道阻塞，改 avcodec 直解（send_packet/receive_frame），golden 样本 47 帧全解出并目检通过 |
 | R-2 | gRPC UNKNOWN（版本错配） | ✅ M0 已定位：hosScrcpy 自包含 grpc，禁止外部 grpc 依赖；写入 classpath 铁律 |
 | R-3 | 按变化推流被误判为断流 | 断流判定基于 gRPC 状态+isOnline，不基于帧间隔；UI 状态栏体现"画面静止" |
 | R-4 | isOnline 5s 超时偶发误判 | DeviceMonitor/连接前重试 ≥2 次 |
