@@ -3,7 +3,9 @@ package com.hnscrcpy;
 import com.hnscrcpy.device.DeviceInfo;
 import com.hnscrcpy.device.DeviceMonitor;
 import com.hnscrcpy.device.HdcClient;
+import com.hnscrcpy.stream.VideoConfig;
 import com.hnscrcpy.ui.MainView;
+import com.hnscrcpy.ui.MirrorWindow;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
@@ -40,8 +42,8 @@ public class App extends Application {
     }
 
     private void onDeviceSelected(DeviceInfo device) {
-        log.info("selected device: {}", device.displayName());
-        mainView.showPlaceholder(device);
+        log.info("opening mirror for {}", device.displayName());
+        new MirrorWindow().open(device, VideoConfig.defaults());
     }
 
     public static void main(String[] args) {

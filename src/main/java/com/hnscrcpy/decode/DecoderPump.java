@@ -1,0 +1,153 @@
+package com.hnscrcpy.decode;
+
+import com.hnscrcpy.stream.FrameSink;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayDeque;
+import java.util.Queue;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+
+/**
+ * 解码泵：连接流回调与解码器。
+ * - gRPC 线程只入队（有界 8，满则丢最旧），绝不阻塞；
+ * - 单个泵线程依次取帧 → avcodec 解码 → 结果放入 latest 槽位（只保留最新一帧）。
+ */
+public final class DecoderPump implements FrameSink, AutoCloseable {
+
+    private static final Logger log = LoggerFactory.getLogger(DecoderPump.class);
+    private static final int QUEUE_CAPACITY = 8;
+
+    /** 有界丢最旧队列逻辑；包可见静态工厂便于测试。 */
+    static <T> boolean offerDropOldest(Queue<T> queue, T item, int capacity) {
+        if (queue.size() >= capacity) {
+            queue.poll();
+        }
+        return queue.offer(item);
+    }
+
+    private final Object queueLock = new Object();
+    private final Queue<byte[]> pending = new ArrayDeque<>(QUEUE_CAPACITY);
+    private final AtomicReference<VideoFrame> latest = new AtomicReference<>();
+    private final AtomicLong sequence = new AtomicLong();
+    private final AtomicLong decodedCount = new AtomicLong();
+    private final AtomicLong droppedCount = new AtomicLong();
+
+    private H264Decoder decoder;
+    private Thread pumpThread;
+    private volatile boolean running;
+
+    public void start() {
+        if (running) {
+            return;
+        }
+        running = true;
+        decoder = new H264Decoder();
+        pumpThread = new Thread(this::pumpLoop, "decoder-pump");
+        pumpThread.setDaemon(true);
+        pumpThread.start();
+    }
+
+    // ---- FrameSink（gRPC 线程调用，必须快） ----
+
+    @Override
+    public void onStreamReady() {
+        log.info("stream ready");
+    }
+
+    @Override
+    public void onH264Frame(byte[] data) {
+        synchronized (queueLock) {
+            if (pending.size() >= QUEUE_CAPACITY) {
+                pending.poll();
+                droppedCount.incrementAndGet();
+            }
+            pending.offer(data);
+            queueLock.notify();
+        }
+    }
+
+    @Override
+    public void onStreamError(Throwable t) {
+        log.warn("stream error: {}", t.toString());
+    }
+
+    @Override
+    public void onStreamEnded() {
+        log.info("stream ended");
+        stop();
+    }
+
+    // ---- 泵线程 ----
+
+    private void pumpLoop() {
+        while (running) {
+            byte[] chunk = takeChunk();
+            if (chunk == null) {
+                continue;
+            }
+            VideoFrame f;
+            try {
+                f = decoder.decode(chunk);
+            } catch (RuntimeException e) {
+                log.warn("decode failed: {}", e.toString());
+                continue;
+            }
+            if (f != null) {
+                decodedCount.incrementAndGet();
+                latest.set(new VideoFrame(f.width(), f.height(), f.pixels(), f.ptsMicros(),
+                        sequence.incrementAndGet()));
+            }
+        }
+    }
+
+    private byte[] takeChunk() {
+        synchronized (queueLock) {
+            while (running && pending.isEmpty()) {
+                try {
+                    queueLock.wait(200);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return null;
+                }
+            }
+            return pending.poll();
+        }
+    }
+
+    /** 最新解码帧（可能为 null）；引用不可变，可安全跨线程持有。 */
+    public VideoFrame latestFrame() {
+        return latest.get();
+    }
+
+    public long decodedCount() {
+        return decodedCount.get();
+    }
+
+    public long droppedCount() {
+        return droppedCount.get();
+    }
+
+    public void stop() {
+        running = false;
+        synchronized (queueLock) {
+            queueLock.notifyAll();
+        }
+    }
+
+    @Override
+    public void close() {
+        stop();
+        if (pumpThread != null) {
+            try {
+                pumpThread.join(2000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        if (decoder != null) {
+            decoder.close();
+        }
+    }
+}
