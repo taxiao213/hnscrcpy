@@ -22,6 +22,27 @@ import java.util.function.Consumer;
  */
 public class MainView {
 
+    /** 设备列表样式：选中项深色胶囊（替代默认亮蓝），与投屏窗口同一套设计语言。 */
+    private static final String LIST_CSS = """
+            .device-list {
+                -fx-background-color: #fbfbfc;
+            }
+            .device-list .list-cell {
+                -fx-padding: 9 14 9 12;
+                -fx-background-color: transparent;
+                -fx-text-fill: #2c2c31;
+            }
+            .device-list .list-cell:filled:hover {
+                -fx-background-color: #ececf2;
+                -fx-background-radius: 8;
+            }
+            .device-list .list-cell:filled:selected {
+                -fx-background-color: #2c2c31;
+                -fx-text-fill: #f7f7f9;
+                -fx-background-radius: 8;
+            }
+            """;
+
     private final BorderPane root = new BorderPane();
     private final ObservableList<DeviceInfo> devices = FXCollections.observableArrayList();
     private final ListView<DeviceInfo> deviceList = new ListView<>(devices);
@@ -32,6 +53,8 @@ public class MainView {
 
     public MainView(Consumer<DeviceInfo> onSelect) {
         this.onSelect = onSelect;
+        deviceList.getStyleClass().add("device-list");
+        root.getStylesheets().add(UiStyles.dataUrl(LIST_CSS));
         deviceList.setCellFactory(lv -> new ListCell<>() {
             @Override
             protected void updateItem(DeviceInfo item, boolean empty) {

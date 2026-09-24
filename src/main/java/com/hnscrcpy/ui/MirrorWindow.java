@@ -24,9 +24,6 @@ import javafx.stage.Stage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-
 /**
  * 投屏窗口：深色背景 + 圆角阴影画面（居中）+ 右侧悬浮竖排工具条 + 底部细状态栏。
  * 样式对标 DevEco Testing 远控面板；快捷键见 README（⌘ 在 Windows/Linux 为 Ctrl）。
@@ -214,7 +211,8 @@ public final class MirrorWindow {
         String deviceText = device != null ? device.displayName() : "未连接";
         alert.setContentText("鸿蒙 NEXT 投屏远控工具\n设备: " + deviceText
                 + "\n\n视频源: hosScrcpy H.264 流 · avcodec 直解渲染"
-                + "\n\n作者: 微信公众号「他晓」\nGitHub: https://github.com/taxiao213");
+                + "\n\n作者: 微信公众号「他晓」\nGitHub: https://github.com/taxiao213"
+                + "\n邮箱: yin13753884368@163.com");
         alert.initOwner(stage);
         // 弹窗样式与主窗口一致（默认 Modena 蓝按钮与整体风格不搭）
         var pane = alert.getDialogPane();
@@ -224,12 +222,10 @@ public final class MirrorWindow {
     }
 
     /**
-     * 工具条样式表的 data: URL。URLEncoder 把空格编成 '+'，而 data: URL 中 '+' 是字面量，
-     * 会导致整条 CSS 解析失败（样式静默丢失）——必须再替换回 %20。包可见便于离屏快照验证。
+     * 工具条样式表的 data: URL；包可见便于离屏快照验证。
      */
     static String toolbarStylesheetUrl() {
-        return "data:text/css," + URLEncoder.encode(toolbarCss(), StandardCharsets.UTF_8)
-                .replace("+", "%20");
+        return UiStyles.dataUrl(toolbarCss());
     }
 
     /** 工具条 + 菜单样式；包可见便于离屏快照验证。 */
