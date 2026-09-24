@@ -8,6 +8,7 @@ import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 /**
  * 解码泵：连接流回调与解码器。
@@ -37,10 +38,19 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
     private H264Decoder decoder;
     private Thread pumpThread;
     private volatile boolean running;
+    private volatile Consumer<Throwable> errorHandler = t -> { };
+
+    /** 流异常/结束回调（gRPC 线程调用）；由会话层接管重连。 */
+    public void setErrorHandler(Consumer<Throwable> handler) {
+        this.errorHandler = handler != null ? handler : t -> { };
+    }
 
     public void start() {
         if (running) {
             return;
+        }
+        synchronized (queueLock) {
+            pending.clear(); // 重连时丢弃旧流残留帧（新解码器无 SPS/PPS，解不了）
         }
         running = true;
         decoder = new H264Decoder();
@@ -71,12 +81,14 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
     @Override
     public void onStreamError(Throwable t) {
         log.warn("stream error: {}", t.toString());
+        errorHandler.accept(t);
     }
 
     @Override
     public void onStreamEnded() {
         log.info("stream ended");
         stop();
+        errorHandler.accept(new StreamEndedException());
     }
 
     // ---- 泵线程 ----
@@ -136,9 +148,22 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
         }
     }
 
+    /** 断流重连：停泵 → 等线程退出 → 释放旧解码器 → 以全新解码器重启。 */
+    public void restart() {
+        stop();
+        joinPumpThread();
+        closeDecoder();
+        start();
+    }
+
     @Override
     public void close() {
         stop();
+        joinPumpThread();
+        closeDecoder();
+    }
+
+    private void joinPumpThread() {
         if (pumpThread != null) {
             try {
                 pumpThread.join(2000);
@@ -146,8 +171,12 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
                 Thread.currentThread().interrupt();
             }
         }
+    }
+
+    private void closeDecoder() {
         if (decoder != null) {
             decoder.close();
+            decoder = null;
         }
     }
 }

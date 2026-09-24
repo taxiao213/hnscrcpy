@@ -11,6 +11,7 @@
 - 快捷键：H 主页 / B 返回 / R 最近任务 / P 电源 / Ctrl+S 截图
 - 工具栏：主页 / 返回 / 最近任务 / 电源 / 截图 / 旋转
 - 设备旋转自适应；截图保存 ~/Pictures/hnscrcpy/
+- 断流自动重连：视频流异常断开时指数退避重连（1s→10s，最多 5 次），状态栏提示重连进度
 - CLI：--serial / --max-size(预留) / --bit-rate / --fps / --no-control / --help / --version
 - 配置持久化 ~/.hnscrcpy/config.properties
 
@@ -27,3 +28,5 @@
 - hosScrcpy jar 自包含 grpc/netty/protobuf，禁止外部 grpc 依赖（classpath 铁律）
 - JavaFX classpath 模式下主类不得继承 Application，入口使用 Launcher
 - 最近任务键 = uinput 2720（真机实测）
+- 浸泡测试（2h 连续滑动/按键）暴露视频流 ~9 分钟被设备侧断开（UNAVAILABLE），
+  客户端无感知画面冻结 —— 已补断流检测 + 自动重连，重连前等待 2s 防设备侧实例冲突

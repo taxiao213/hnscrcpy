@@ -18,6 +18,9 @@ import org.slf4j.LoggerFactory;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
@@ -28,6 +31,11 @@ public final class MirrorSession implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(MirrorSession.class);
     private static final int[] FALLBACK_SCREEN = {1080, 2400};
+    /** 断流自动重连：指数退避上限与最大次数。 */
+    private static final int MAX_RECONNECT_ATTEMPTS = 5;
+    private static final long MAX_RECONNECT_DELAY_MS = 10_000;
+    /** 设备侧 scrcpy 进程退出需要约 2s，重启前必须等待，防新旧实例冲突。 */
+    private static final long RECONNECT_SETTLE_MS = 2_000;
 
     public enum State { IDLE, STREAMING, ERROR, CLOSED }
 
@@ -40,6 +48,8 @@ public final class MirrorSession implements AutoCloseable {
     private final FrameRenderer renderer = new FrameRenderer();
     private final RenderScheduler renderScheduler;
     private final Consumer<String> statusListener;
+    private final ScheduledExecutorService reconnectScheduler;
+    private final AtomicInteger reconnectAttempts = new AtomicInteger();
 
     private volatile State state = State.IDLE;
 
@@ -60,6 +70,12 @@ public final class MirrorSession implements AutoCloseable {
             return t;
         });
         this.renderScheduler = new RenderScheduler(pump, renderer);
+        this.reconnectScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "stream-reconnect");
+            t.setDaemon(true);
+            return t;
+        });
+        pump.setErrorHandler(this::onStreamFailure);
         renderScheduler.setStatsListener(fps -> status("FPS " + fps
                 + " | 解码 " + pump.decodedCount() + " | 丢帧 " + pump.droppedCount()));
         // 旋转自适应：解码帧宽高比变化时同步映射器
@@ -131,8 +147,62 @@ public final class MirrorSession implements AutoCloseable {
         return state;
     }
 
+    /** 累计解码帧数（状态栏/浸泡测试用）。 */
+    public long decodedCount() {
+        return pump.decodedCount();
+    }
+
+    /** 累计丢帧数。 */
+    public long droppedCount() {
+        return pump.droppedCount();
+    }
+
     private void status(String msg) {
-        statusListener.accept(msg);
+        // 流回调/重连线程上触发时也安全：统一回到 FX 线程更新状态栏
+        if (javafx.application.Platform.isFxApplicationThread()) {
+            statusListener.accept(msg);
+        } else {
+            javafx.application.Platform.runLater(() -> statusListener.accept(msg));
+        }
+    }
+
+    /** 流异常/结束（gRPC 线程）：进入 ERROR 并排队指数退避重连。 */
+    private void onStreamFailure(Throwable t) {
+        if (state != State.STREAMING && state != State.ERROR) {
+            return;
+        }
+        state = State.ERROR;
+        int attempt = reconnectAttempts.incrementAndGet();
+        if (attempt > MAX_RECONNECT_ATTEMPTS) {
+            status("连接中断，重连失败，请关闭窗口重新打开");
+            log.warn("stream lost, reconnect budget exhausted: {}", t.toString());
+            return;
+        }
+        long delay = Math.min(1000L << (attempt - 1), MAX_RECONNECT_DELAY_MS);
+        status("连接中断，" + (delay / 1000) + "s 后重连（第 " + attempt + "/" + MAX_RECONNECT_ATTEMPTS + " 次）…");
+        log.info("stream failure, reconnect attempt {} in {}ms: {}", attempt, delay, t.toString());
+        reconnectScheduler.schedule(this::reconnect, delay, TimeUnit.MILLISECONDS);
+    }
+
+    private void reconnect() {
+        if (state == State.CLOSED) {
+            return;
+        }
+        try {
+            stream.stop();
+            Thread.sleep(RECONNECT_SETTLE_MS);
+            pump.restart();
+            stream.start(pump);
+            reconnectAttempts.set(0);
+            state = State.STREAMING;
+            status("投屏中");
+            log.info("stream reconnected");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (RuntimeException e) {
+            log.warn("reconnect attempt failed: {}", e.toString());
+            onStreamFailure(e);
+        }
     }
 
     @Override
@@ -142,6 +212,7 @@ public final class MirrorSession implements AutoCloseable {
         }
         state = State.CLOSED;
         renderScheduler.stop();
+        reconnectScheduler.shutdownNow();
         stream.stop();
         pump.close();
         controlExecutor.shutdownNow();

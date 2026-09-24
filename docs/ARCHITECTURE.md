@@ -117,6 +117,9 @@ AnimationTimer（JavaFX 线程）→ PixelBuffer 更新 WritableImage → ImageV
 - **PixelBuffer 零拷贝**：BGRA 缓冲直接包 WritableImage，避免每帧像素复制。
 - **按变化推流 ≠ 断流**：静态画面无新帧是正常行为（M0 实测静置 7s 无帧）。
   断流判定用 gRPC 状态 + isOnline 轮询，不用"帧超时"。
+- **断流自动重连**：视频 gRPC 流异常（实测约 9 分钟会被设备侧断开，UNAVAILABLE）时，
+  MirrorSession 经 pump errorHandler 感知 → ERROR 态 → 指数退避重连（1s→10s，≤5 次），
+  重连前 stop 并等待 2s（设备侧 scrcpy 进程退出），pump.restart() 换全新解码器。
 - **丢帧恢复**：解码器出错/花屏时调 `requestIDRFrame()` 强制关键帧。
 - **分辨率变化**（旋转）：流宽高变化 → 重置解码器 + 通知窗口自适应。
 

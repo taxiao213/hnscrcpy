@@ -126,6 +126,8 @@
                         <exclude>com/hnscrcpy/session/*</exclude>
                         <!-- JDK 内部类，jacoco 在 JDK 25 下无法插桩，静默 -->
                         <exclude>sun/util/resources/cldr/**</exclude>
+                        <!-- 测试期动态编译的 hosScrcpy 桩类（JDK 25 字节码），不插桩 -->
+                        <exclude>com/huawei/**</exclude>
                     </excludes>
                 </configuration>
                 <executions>
