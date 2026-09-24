@@ -79,12 +79,14 @@ public final class MirrorWindow {
 
         SideToolbar toolbar = new SideToolbar(buildActions());
         StackPane toolbarHolder = new StackPane(toolbar);
-        toolbarHolder.setPadding(new Insets(0, 14, 0, 4));
+        toolbarHolder.setPadding(new Insets(0, 18, 0, 0));
         toolbarHolder.setMinWidth(64);
         toolbarHolder.setMaxWidth(64);
 
+        // 画面卡片与工具条卡片之间留出间隙：两个独立悬浮框的观感
         HBox content = new HBox(screenHolder, toolbarHolder);
         content.setAlignment(Pos.CENTER);
+        content.setSpacing(18);
         HBox.setHgrow(screenHolder, Priority.ALWAYS);
         content.setBackground(new Background(new BackgroundFill(BG, CornerRadii.EMPTY, Insets.EMPTY)));
 
@@ -96,8 +98,7 @@ public final class MirrorWindow {
         statusBar.setBackground(new Background(new BackgroundFill(STATUS_BG, CornerRadii.EMPTY, Insets.EMPTY)));
 
         Scene scene = new Scene(root, 520, 920);
-        scene.getStylesheets().add("data:text/css,"
-                + URLEncoder.encode(toolbarCss(), StandardCharsets.UTF_8));
+        scene.getStylesheets().add(toolbarStylesheetUrl());
         stage.setTitle("hnscrcpy — " + device.displayName());
         stage.setMinWidth(360);
         stage.setMinHeight(560);
@@ -206,13 +207,23 @@ public final class MirrorWindow {
         alert.showAndWait();
     }
 
-    private static String toolbarCss() {
+    /**
+     * 工具条样式表的 data: URL。URLEncoder 把空格编成 '+'，而 data: URL 中 '+' 是字面量，
+     * 会导致整条 CSS 解析失败（样式静默丢失）——必须再替换回 %20。包可见便于离屏快照验证。
+     */
+    static String toolbarStylesheetUrl() {
+        return "data:text/css," + URLEncoder.encode(toolbarCss(), StandardCharsets.UTF_8)
+                .replace("+", "%20");
+    }
+
+    /** 工具条 + 菜单样式；包可见便于离屏快照验证。 */
+    static String toolbarCss() {
         return """
                 .tool-pill {
                     -fx-background-color: #f7f7f9;
-                    -fx-background-radius: 16;
-                    -fx-padding: 8 6 8 6;
-                    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.35), 14, 0, 0, 3);
+                    -fx-background-radius: 18;
+                    -fx-padding: 10 7 10 7;
+                    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.45), 16, 0, 0, 4);
                 }
                 .tool-btn {
                     -fx-background-color: transparent;
@@ -226,15 +237,16 @@ public final class MirrorWindow {
                 .menu-panel {
                     -fx-background-color: #fbfbfc;
                     -fx-background-radius: 12;
-                    -fx-padding: 6 0 6 0;
+                    -fx-padding: 8;
                     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.28), 18, 0, 0, 4);
                     -fx-border-color: #e4e4ea;
                     -fx-border-radius: 12;
                 }
                 .menu-row {
-                    -fx-padding: 8 16 8 14;
+                    -fx-padding: 9 14 9 12;
                     -fx-cursor: hand;
                     -fx-min-width: 230;
+                    -fx-background-radius: 8;
                 }
                 .menu-row:hover { -fx-background-color: #ececf2; }
                 .menu-label { -fx-text-fill: #2c2c31; -fx-font-size: 13; }

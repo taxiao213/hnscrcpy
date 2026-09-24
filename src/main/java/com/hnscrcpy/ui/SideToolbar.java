@@ -46,7 +46,7 @@ public final class SideToolbar extends VBox {
         this.actions = actions;
         getStyleClass().add("tool-pill");
         setAlignment(Pos.CENTER);
-        setSpacing(2);
+        setSpacing(4);
 
         Button close = iconButton(ToolIcons.svg(ToolIcons.CLOSE, ICON), "关闭窗口");
         close.setOnAction(e -> actions.onClose().run());
@@ -109,22 +109,29 @@ public final class SideToolbar extends VBox {
             menu.hide();
             return;
         }
-        VBox box = new VBox();
-        box.getStyleClass().add("menu-panel");
-        boolean[] first = {true};
-        for (MenuEntry entry : menuEntries()) {
-            if (!first[0]) {
-                Separator sep = new Separator();
-                sep.getStyleClass().add("menu-sep");
-                box.getChildren().add(sep);
-            }
-            first[0] = false;
-            box.getChildren().add(menuRow(entry));
-        }
-        menu.getContent().setAll(box);
+        menu.getContent().setAll(buildMenuContent());
         menu.setAutoHide(true);
         var pos = anchor.localToScreen(anchor.getLayoutBounds().getMaxX() + 6, 0);
         menu.show(anchor.getScene().getWindow(), pos.getX(), pos.getY());
+        // Popup 有自己的 Scene，不继承主场景样式表——必须显式拷贝，否则菜单完全无样式
+        menu.getScene().getStylesheets().setAll(anchor.getScene().getStylesheets());
+    }
+
+    /** 菜单面板内容（分隔线只用于"关于"前的分组）；包可见便于离屏快照验证样式。 */
+    VBox buildMenuContent() {
+        VBox box = new VBox();
+        box.getStyleClass().add("menu-panel");
+        List<MenuEntry> entries = menuEntries();
+        for (int i = 0; i < entries.size(); i++) {
+            if (i == entries.size() - 1) {
+                Separator sep = new Separator();
+                sep.getStyleClass().add("menu-sep");
+                VBox.setMargin(sep, new Insets(6, 10, 6, 10));
+                box.getChildren().add(sep);
+            }
+            box.getChildren().add(menuRow(entries.get(i)));
+        }
+        return box;
     }
 
     private HBox menuRow(MenuEntry entry) {
