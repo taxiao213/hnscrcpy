@@ -87,11 +87,15 @@ class DeviceControllerTest {
         ctl.keyBack();
         ctl.keyRecentTasks();
         ctl.keyPower();
+        ctl.keyVolumeUp();
+        ctl.keyVolumeDown();
 
         assertThat(hdc.commands).containsExactly(
                 "uinput -K -d 1 -u 1",
                 "uinput -K -d 2 -u 2",
                 "uinput -K -d 2720 -u 2720",
-                "uinput -K -d 18 -u 18");
+                "uinput -K -d 18 -u 18",
+                "uinput -K -d 16 -u 16",
+                "uinput -K -d 17 -u 17");
     }
 }

@@ -23,6 +23,8 @@ public final class DeviceController {
     private static final int KEY_BACK = 2;
     private static final int KEY_POWER = 18;
     private static final int KEY_RECENT_TASKS = 2720;
+    private static final int KEY_VOLUME_UP = 16;
+    private static final int KEY_VOLUME_DOWN = 17;
 
     private final HosScrcpyBridge bridge;
     private final HdcClient hdc;
@@ -84,6 +86,14 @@ public final class DeviceController {
 
     public void keyPower() {
         pressKey(KEY_POWER);
+    }
+
+    public void keyVolumeUp() {
+        pressKey(KEY_VOLUME_UP);
+    }
+
+    public void keyVolumeDown() {
+        pressKey(KEY_VOLUME_DOWN);
     }
 
     /** 横屏（设备旋转 90°）。 */
