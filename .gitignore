@@ -1,0 +1,22 @@
+# Build output
+target/
+**/target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# OS
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Runtime state
+hn_build/
+*.pid

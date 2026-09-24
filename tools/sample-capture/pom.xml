@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.hnscrcpy</groupId>
+    <artifactId>sample-capture</artifactId>
+    <version>0.1.0-m0</version>
+    <packaging>jar</packaging>
+
+    <properties>
+        <maven.compiler.release>17</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <grpc.version>1.64.0</grpc.version>
+        <!-- M0 临时指向参考项目；M1 确定 jar 归属后改为仓库内路径 -->
+        <hosScrcpy.jar.path>/Users/secneo/Documents/bangcle/hegui/TEST-0321/screencap/harmony-screencap/src/main/resources/lib/hosScrcpy-1.0.15-beta.jar</hosScrcpy.jar.path>
+    </properties>
+
+    <dependencies>
+        <!-- hosScrcpy jar 自包含 grpc/netty/protobuf/fastjson 全套依赖（2023-10 版本），
+             绝不能再叠加外部 grpc/netty 依赖，否则 NoSuchMethodError: filterTransport -->
+        <dependency>
+            <groupId>com.huawei</groupId>
+            <artifactId>hos-scrcpy</artifactId>
+            <version>1.0.15-beta</version>
+            <scope>system</scope>
+            <systemPath>${hosScrcpy.jar.path}</systemPath>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.2.0</version>
+            </plugin>
+        </plugins>
+    </build>
+</project>
