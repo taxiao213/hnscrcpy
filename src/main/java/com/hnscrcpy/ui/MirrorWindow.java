@@ -11,16 +11,14 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Label;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.Background;
-import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,12 +33,11 @@ public final class MirrorWindow {
 
     private static final Logger log = LoggerFactory.getLogger(MirrorWindow.class);
 
-    private static final Color BG = Color.web("#1b1b1f");
-    private static final Color STATUS_BG = Color.web("#121215");
     private static final Color STATUS_FG = Color.web("#9a9aa2");
     private static final double SCREEN_RADIUS = 32;
 
-    private final Stage stage = new Stage();
+    // TRANSPARENT 是 JavaFX 唯一支持窗口背景透明的样式；代价是没有系统标题栏
+    private final Stage stage = new Stage(StageStyle.TRANSPARENT);
     private final Label statusBar = new Label("初始化…");
     private MirrorSession session;
     private DeviceInfo device;
@@ -88,16 +85,15 @@ public final class MirrorWindow {
         content.setAlignment(Pos.CENTER);
         content.setSpacing(18);
         HBox.setHgrow(screenHolder, Priority.ALWAYS);
-        content.setBackground(new Background(new BackgroundFill(BG, CornerRadii.EMPTY, Insets.EMPTY)));
 
         statusBar.setTextFill(STATUS_FG);
         statusBar.setPadding(new Insets(5, 12, 5, 12));
         BorderPane root = new BorderPane();
         root.setCenter(content);
         root.setBottom(statusBar);
-        statusBar.setBackground(new Background(new BackgroundFill(STATUS_BG, CornerRadii.EMPTY, Insets.EMPTY)));
 
         Scene scene = new Scene(root, 520, 920);
+        scene.setFill(Color.TRANSPARENT);
         scene.getStylesheets().add(toolbarStylesheetUrl());
         stage.setTitle("hnscrcpy — " + device.displayName());
         stage.setMinWidth(360);
