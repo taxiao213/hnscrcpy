@@ -4,6 +4,8 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.Node;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.function.DoubleSupplier;
 
@@ -14,6 +16,8 @@ import java.util.function.DoubleSupplier;
  * - 所有事件在 FX 线程触发，uitest 通道是同步 RPC，因此控制调用走单线程执行器串行化。
  */
 public final class InputForwarder {
+
+    private static final Logger log = LoggerFactory.getLogger(InputForwarder.class);
 
     private static final long MOVE_MIN_INTERVAL_MS = 16;
 
@@ -52,7 +56,9 @@ public final class InputForwarder {
         pressing = true;
         pressingButton = e.getButton();
         int[] p = map(e);
-        controlExecutor.execute(() -> {
+        log.debug("mouse {} pressed scene=({},{}) -> device=({},{})",
+                e.getButton(), e.getX(), e.getY(), p[0], p[1]);
+        submit(p, () -> {
             if (e.getButton() == MouseButton.PRIMARY) {
                 controller.touchDown(p[0], p[1]);
             } else {
@@ -71,7 +77,7 @@ public final class InputForwarder {
         }
         lastMoveMs = now;
         int[] p = map(e);
-        controlExecutor.execute(() -> {
+        submit(p, () -> {
             if (pressingButton == MouseButton.PRIMARY) {
                 controller.touchMove(p[0], p[1]);
             } else {
@@ -86,8 +92,10 @@ public final class InputForwarder {
         }
         pressing = false;
         int[] p = map(e);
+        log.debug("mouse {} released scene=({},{}) -> device=({},{})",
+                e.getButton(), e.getX(), e.getY(), p[0], p[1]);
         MouseButton btn = pressingButton;
-        controlExecutor.execute(() -> {
+        submit(p, () -> {
             if (btn == MouseButton.PRIMARY) {
                 controller.touchUp(p[0], p[1]);
             } else {
@@ -99,13 +107,25 @@ public final class InputForwarder {
     private void onScroll(ScrollEvent e) {
         int[] p = mapper.toDevice(e.getX(), e.getY(), viewWidth.getAsDouble(), viewHeight.getAsDouble());
         double delta = e.getDeltaY();
-        controlExecutor.execute(() -> {
+        log.debug("scroll delta={} scene=({},{}) -> device=({},{})", delta, e.getX(), e.getY(), p[0], p[1]);
+        submit(p, () -> {
             if (delta > 0) {
                 controller.mouseWheelUp(p[0], p[1]);
             } else if (delta < 0) {
                 controller.mouseWheelDown(p[0], p[1]);
             } else {
                 controller.mouseWheelStop(p[0], p[1]);
+            }
+        });
+    }
+
+    /** 控制调用串行化提交；异常必须接住——执行器线程的未捕获异常会静默消失。 */
+    private void submit(int[] p, Runnable call) {
+        controlExecutor.execute(() -> {
+            try {
+                call.run();
+            } catch (RuntimeException ex) {
+                log.warn("control call ({},{}) failed: {}", p[0], p[1], ex.toString());
             }
         });
     }
