@@ -10,14 +10,11 @@ import javafx.scene.shape.Shape;
 
 /**
  * 图标工厂：Material 风格 24dp 矢量路径 + 导航键线框图形。
- * 路径按 24dp 设计稿等比缩放到目标边长；导航键图形居中于原点。
+ * 所有图标按内容包围盒归一化缩放到目标边长，保证视觉尺寸一致。
  */
 public final class ToolIcons {
 
     public static final Color ICON_COLOR = Color.web("#3a3a40");
-    private static final double PATH_BOX = 24;
-    /** 导航键图形纵向跨度（用于等比缩放） */
-    private static final double NAV_BOX = 14;
 
     // ---- 24dp 路径数据（Material Design） ----
     public static final String CLOSE =
@@ -45,7 +42,8 @@ public final class ToolIcons {
     private ToolIcons() {
     }
 
-    /** SVG 路径图标；evenOdd=true 时子路径按奇偶规则挖孔（如相机镜头）。 */
+    /** SVG 路径图标；evenOdd=true 时子路径按奇偶规则挖孔（如相机镜头）。
+     *  按内容实际包围盒归一化缩放（而非 24dp 设计稿外框），保证各图标视觉尺寸一致。 */
     public static Group svg(String pathData, double size, boolean evenOdd) {
         SVGPath p = new SVGPath();
         p.setContent(pathData);
@@ -53,9 +51,7 @@ public final class ToolIcons {
         if (evenOdd) {
             p.setFillRule(javafx.scene.shape.FillRule.EVEN_ODD);
         }
-        double s = size / PATH_BOX;
-        p.setScaleX(s);
-        p.setScaleY(s);
+        normalize(p, size);
         return new Group(p);
     }
 
@@ -86,9 +82,15 @@ public final class ToolIcons {
         shape.setFill(Color.TRANSPARENT);
         shape.setStroke(ICON_COLOR);
         shape.setStrokeWidth(1.7);
-        double s = size / NAV_BOX;
+        normalize(shape, size);
+        return new Group(shape);
+    }
+
+    /** 等比缩放使内容包围盒的最长边等于 size；视觉尺寸跨图标一致。 */
+    private static void normalize(Shape shape, double size) {
+        var b = shape.getBoundsInLocal();
+        double s = size / Math.max(b.getWidth(), b.getHeight());
         shape.setScaleX(s);
         shape.setScaleY(s);
-        return new Group(shape);
     }
 }

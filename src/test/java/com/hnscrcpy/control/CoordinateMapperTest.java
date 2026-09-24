@@ -41,12 +41,25 @@ class CoordinateMapperTest {
     }
 
     @Test
-    @DisplayName("horizontal swaps display dimensions")
+    @DisplayName("horizontal swaps display dimensions but passes coords through")
     void toDevice_horizontal_swapsAxes() {
         mapper.setHorizontal(true);
-        // 横屏显示尺寸 2860x1272；视图同尺寸 → 1:1
+        // 横屏显示尺寸 2860x1272；视图同尺寸 → 1:1。
+        // uitest 布局与触摸注入同为当前方向坐标空间（实测横屏 dumpLayout 根节点
+        // [0,0][2860,1272]），因此坐标直通，不做逆旋转。
         int[] p = mapper.toDevice(100, 200, 2860, 1272);
-        assertThat(p[0]).isEqualTo(200);
-        assertThat(p[1]).isEqualTo(2860 - 1 - 100);
+        assertThat(p).containsExactly(100, 200);
+        // 缩放 + 留边仍按横屏显示尺寸计算
+        int[] q = mapper.toDevice(50, 100, 1430, 636);
+        assertThat(q).containsExactly(100, 200);
+    }
+
+    @Test
+    @DisplayName("horizontal: out-of-bounds clamps to landscape display edges")
+    void toDevice_horizontal_clamps() {
+        mapper.setHorizontal(true);
+        int[] p = mapper.toDevice(-50, 99999, 2860, 1272);
+        assertThat(p[0]).isEqualTo(0);
+        assertThat(p[1]).isEqualTo(1271);
     }
 }

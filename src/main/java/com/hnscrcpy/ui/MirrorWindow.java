@@ -79,7 +79,7 @@ public final class MirrorWindow {
 
         SideToolbar toolbar = new SideToolbar(buildActions());
         StackPane toolbarHolder = new StackPane(toolbar);
-        toolbarHolder.setPadding(new Insets(0, 18, 0, 0));
+        toolbarHolder.setPadding(new Insets(2, 18, 2, 0));
         toolbarHolder.setMinWidth(64);
         toolbarHolder.setMaxWidth(64);
 
@@ -171,6 +171,16 @@ public final class MirrorWindow {
                 session.mapper().setHorizontal(true);
             }
         });
+        // 窗口跟随旋转：按当前画面显示尺寸交换宽高，画面物理大小不变。
+        // 多出的空间只会分配给 screenHolder（唯一 hgrow），横竖切换后画面依然填满。
+        javafx.application.Platform.runLater(() -> {
+            var b = session.getView().getLayoutBounds();
+            if (b.getWidth() > 0 && b.getHeight() > 0) {
+                double delta = b.getHeight() - b.getWidth();
+                stage.setWidth(stage.getWidth() + delta);
+                stage.setHeight(stage.getHeight() - delta);
+            }
+        });
     }
 
     private void onToggleTop() {
@@ -202,7 +212,8 @@ public final class MirrorWindow {
         alert.setHeaderText("hnscrcpy " + com.hnscrcpy.App.VERSION);
         String deviceText = device != null ? device.displayName() + "（" + device.serial() + "）" : "未连接";
         alert.setContentText("鸿蒙 NEXT 投屏远控工具\n设备: " + deviceText
-                + "\n\n视频源: hosScrcpy H.264 流 · avcodec 直解渲染");
+                + "\n\n视频源: hosScrcpy H.264 流 · avcodec 直解渲染"
+                + "\n\n作者: 微信公众号「他晓」\nGitHub: https://github.com/taxiao213");
         alert.initOwner(stage);
         alert.showAndWait();
     }
@@ -222,7 +233,7 @@ public final class MirrorWindow {
                 .tool-pill {
                     -fx-background-color: #f7f7f9;
                     -fx-background-radius: 18;
-                    -fx-padding: 10 7 10 7;
+                    -fx-padding: 5 7 5 7;
                     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.45), 16, 0, 0, 4);
                 }
                 .tool-btn {

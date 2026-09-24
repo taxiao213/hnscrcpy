@@ -41,6 +41,9 @@ public final class CoordinateMapper {
 
     /**
      * 视图坐标 → 设备坐标（int[]{deviceX, deviceY}）；超出画面区域时钳制到边缘。
+     * 注意：uitest 的布局 dump 与触摸注入使用同一套「当前显示方向」坐标空间
+     * （横屏实测 dumpLayout 根节点 [0,0][2860,1272]），因此横竖屏都是直通映射，
+     * 方向差异只体现在 displayWidth()/displayHeight() 的互换（见 fit）。
      */
     public int[] toDevice(double viewX, double viewY, double viewWidth, double viewHeight) {
         double[] f = fit(viewWidth, viewHeight);
@@ -48,10 +51,6 @@ public final class CoordinateMapper {
         double dy = (viewY - f[2]) / f[0];
         dx = clamp(dx, 0, displayWidth() - 1);
         dy = clamp(dy, 0, displayHeight() - 1);
-        if (horizontal) {
-            // 横屏：显示坐标 (dx 对应设备高, dy 对应设备宽)
-            return new int[]{(int) dy, (int) (deviceHeight - 1 - dx)};
-        }
         return new int[]{(int) dx, (int) dy};
     }
 
