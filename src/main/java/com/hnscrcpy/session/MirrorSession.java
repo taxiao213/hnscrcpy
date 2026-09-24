@@ -34,9 +34,10 @@ public final class MirrorSession implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(MirrorSession.class);
     private static final int[] FALLBACK_SCREEN = {1080, 2400};
-    /** 断流自动重连：指数退避上限与最大次数。 */
+    /** 断流自动重连：指数退避上限与最大次数；耗尽后转 30s 慢速无限重试（不留僵尸窗口）。 */
     private static final int MAX_RECONNECT_ATTEMPTS = 5;
     private static final long MAX_RECONNECT_DELAY_MS = 10_000;
+    private static final long SLOW_RETRY_MS = 30_000;
     /** 设备侧 scrcpy 进程退出需要约 2s，重启前必须等待，防新旧实例冲突。 */
     private static final long RECONNECT_SETTLE_MS = 2_000;
     /**
@@ -185,13 +186,10 @@ public final class MirrorSession implements AutoCloseable {
         }
         state = State.ERROR;
         int attempt = reconnectAttempts.incrementAndGet();
-        if (attempt > MAX_RECONNECT_ATTEMPTS) {
-            status("连接中断，重连失败，请关闭窗口重新打开");
-            log.warn("stream lost, reconnect budget exhausted: {}", t.toString());
-            return;
-        }
-        long delay = Math.min(1000L << (attempt - 1), MAX_RECONNECT_DELAY_MS);
-        status("连接中断，" + (delay / 1000) + "s 后重连（第 " + attempt + "/" + MAX_RECONNECT_ATTEMPTS + " 次）…");
+        long delay = attempt <= MAX_RECONNECT_ATTEMPTS
+                ? Math.min(1000L << (attempt - 1), MAX_RECONNECT_DELAY_MS)
+                : SLOW_RETRY_MS;
+        status("连接中断，" + (delay / 1000) + "s 后重连（第 " + attempt + " 次）…");
         log.info("stream failure, reconnect attempt {} in {}ms: {}", attempt, delay, t.toString());
         reconnectScheduler.schedule(this::reconnect, delay, TimeUnit.MILLISECONDS);
     }
