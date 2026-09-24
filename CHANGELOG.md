@@ -13,6 +13,7 @@
 - 画面圆角裁剪 + 投影，深色背景悬浮布局；音量± 走 uinput（16/17）
 - 设备旋转自适应；截图保存 ~/Pictures/hnscrcpy/
 - 断流自动重连：视频流异常断开时指数退避重连（1s→10s，最多 5 次），状态栏提示重连进度
+- 静默断流看门狗：每 10s 请求 IDR 心跳，连续两轮无新帧判死重连（设备侧退出/被抢占时 gRPC 可能无任何异常回调）
 - CLI：--serial / --max-size(预留) / --bit-rate / --fps / --no-control / --help / --version
 - 配置持久化 ~/.hnscrcpy/config.properties
 

@@ -120,6 +120,9 @@ AnimationTimer（JavaFX 线程）→ PixelBuffer 更新 WritableImage → ImageV
 - **断流自动重连**：视频 gRPC 流异常（实测约 9 分钟会被设备侧断开，UNAVAILABLE）时，
   MirrorSession 经 pump errorHandler 感知 → ERROR 态 → 指数退避重连（1s→10s，≤5 次），
   重连前 stop 并等待 2s（设备侧 scrcpy 进程退出），pump.restart() 换全新解码器。
+- **静默断流看门狗**：设备侧退出（screen exit / 被另一客户端抢占）时 gRPC 可能无任何
+  异常回调，流只是静默无帧。看门狗每 10s 请求一次 IDR（静态画面也会被强制推一帧），
+  连续两轮无新帧即判死（StreamStalledException）→ 走重连。
 - **丢帧恢复**：解码器出错/花屏时调 `requestIDRFrame()` 强制关键帧。
 - **分辨率变化**（旋转）：流宽高变化 → 重置解码器 + 通知窗口自适应。
 
