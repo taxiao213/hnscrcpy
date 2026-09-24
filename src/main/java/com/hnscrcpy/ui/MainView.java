@@ -5,6 +5,7 @@ import com.hnscrcpy.stream.VideoConfig;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
@@ -74,6 +75,7 @@ public class MainView {
         fpsField.setPrefColumnCount(4);
         HBox settings = new HBox(8, new Label("码率(Mbps):"), bitRateField,
                 new Label("帧率:"), fpsField);
+        settings.setAlignment(Pos.CENTER_LEFT);
         settings.setPadding(new Insets(8, 12, 8, 12));
         VBox header = new VBox(4, new Label("设备列表（双击投屏）"), statusLabel, settings);
         header.setPadding(new Insets(12));
