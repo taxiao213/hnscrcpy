@@ -1,0 +1,47 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - run: mvn -B test
+
+  package:
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - os: macos-14 # macOS arm64
+          - os: macos-13 # macOS x86_64
+          - os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        run: ./scripts/build-package.sh
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        run: ./scripts/build-package.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hnscrcpy-${{ matrix.os }}
+          path: target/dist/*
+          if-no-files-found: error
