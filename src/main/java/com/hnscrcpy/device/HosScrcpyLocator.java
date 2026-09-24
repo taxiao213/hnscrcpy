@@ -14,13 +14,16 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
- * 定位 hosScrcpy jar（DevEco Testing / Hypium 插件的一部分，无再分发授权，只做运行时发现）。
- * 查找顺序：环境变量 HOS_SCRCPY_JAR → ~/.hnscrcpy/lib/ → JetBrains 插件目录扫描。
+ * 定位 hosScrcpy jar（DevEco Testing / Hypium 插件的一部分）。
+ * 查找顺序：环境变量 HOS_SCRCPY_JAR → ~/.hnscrcpy/lib/ → JetBrains 插件目录扫描
+ * → 提取内置 jar（自用/团队内部使用场景下随包内置，兜底保证开箱即用）。
  */
 public final class HosScrcpyLocator {
 
     private static final Logger log = LoggerFactory.getLogger(HosScrcpyLocator.class);
     private static final String ENV_JAR = "HOS_SCRCPY_JAR";
+    /** 内置 jar 版本；升级时同步替换 src/main/resources/lib/ 下的文件。 */
+    static final String BUNDLED_JAR = "hosScrcpy-1.0.15-beta.jar";
 
     private HosScrcpyLocator() {
     }
@@ -40,7 +43,29 @@ public final class HosScrcpyLocator {
                 return hit;
             }
         }
-        return Optional.empty();
+        return extractBundled();
+    }
+
+    /** 兜底：把内置 jar 提取到 ~/.hnscrcpy/lib/（与手动放置的发现路径一致）。 */
+    static Optional<Path> extractBundled() {
+        Path target = Platform.userHomeDir().resolve("lib").resolve(BUNDLED_JAR);
+        if (Files.isRegularFile(target)) {
+            log.info("hosScrcpy jar already extracted: {}", target);
+            return Optional.of(target);
+        }
+        try (java.io.InputStream in = HosScrcpyLocator.class.getResourceAsStream("/lib/" + BUNDLED_JAR)) {
+            if (in == null) {
+                log.warn("bundled hosScrcpy jar missing from classpath: /lib/{}", BUNDLED_JAR);
+                return Optional.empty();
+            }
+            Files.createDirectories(target.getParent());
+            Files.copy(in, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            log.info("hosScrcpy jar extracted to {}", target);
+            return Optional.of(target);
+        } catch (IOException e) {
+            log.warn("extract bundled hosScrcpy jar failed", e);
+            return Optional.empty();
+        }
     }
 
     private static Optional<Path> fromEnv() {
@@ -101,13 +126,12 @@ public final class HosScrcpyLocator {
         }
     }
 
-    /** 未找到时的用户指引。 */
+    /** 所有查找路径（含内置提取）都失败时的用户指引。 */
     public static String guidance() {
         return """
-                未找到 hosScrcpy jar。该文件来自华为 DevEco Testing（Hypium）JetBrains 插件，\
-                不能随本程序分发。请任选其一：
-                1. 在 IDE 中安装 DevEco Testing 插件；
-                2. 将 hosScrcpy-*.jar 复制到 ~/.hnscrcpy/lib/；
-                3. 设置环境变量 HOS_SCRCPY_JAR 指向该 jar。""";
+                未找到 hosScrcpy jar，且内置 jar 提取失败。请任选其一：
+                1. 将 hosScrcpy-*.jar 复制到 ~/.hnscrcpy/lib/；
+                2. 设置环境变量 HOS_SCRCPY_JAR 指向该 jar；
+                3. 在 IDE 中安装 DevEco Testing 插件后重试。""";
     }
 }
