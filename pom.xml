@@ -37,7 +37,8 @@
             <id>mac-x86_64</id>
             <activation><os><family>mac</family><arch>x86_64</arch></os></activation>
             <properties>
-                <javafx.platform>mac-x86_64</javafx.platform>
+                <!-- JavaFX 官方 Intel Mac 分类器就是 "mac"（没有 mac-x86_64 这个构件） -->
+                <javafx.platform>mac</javafx.platform>
                 <javacpp.platform>macosx-x86_64</javacpp.platform>
             </properties>
         </profile>
