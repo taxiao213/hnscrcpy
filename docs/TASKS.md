@@ -28,10 +28,10 @@
 | # | 任务 | 产出 | 状态 |
 |---|------|------|------|
 | 0.1 | 解包 hosScrcpy jar，梳理设备侧机制 | `docs/HOS_SCRCPY_PROTOCOL.md` | ✅ 全链路逆向完成 |
-| 0.2 | 真机抓取 onData 样本帧 | `tools/sample-capture/samples/sample1.h264`（48 帧 golden 样本） | ✅ Annex B / SPS+PPS 内嵌 / 每消息一帧 / 按变化推流 |
+| 0.2 | 真机抓取 onData 样本帧 | `src/test/resources/sample1.h264`（48 帧 golden 样本，M0 抓取工具已退役） | ✅ Annex B / SPS+PPS 内嵌 / 每消息一帧 / 按变化推流 |
 | 0.3 | uinput 最近任务键与唤醒验证 | 最近任务=**2720**（实测，2210/187 无效）；音量 16/17 | ✅ |
 | 0.4 | 许可证评估 | 华为 DevEco Testing 插件组件，**不随包分发**，运行时自动发现 | ✅ 结论见协议文档 §9 |
-| 0.5 | JavaCV 裸流解码 spike | `tools/decode-spike`：47 帧 368ms 解完并导出 PNG 目检通过 | ✅ **go** |
+| 0.5 | JavaCV 裸流解码 spike | M0 spike 工具已退役：47 帧 368ms 解完并导出 PNG 目检通过 | ✅ **go** |
 
 **M0 关键发现（影响后续设计）**：
 1. hosScrcpy jar 自包含 grpc/netty/protobuf（2023-10），叠加外部 grpc 1.64 会 UNKNOWN（NoSuchMethodError: filterTransport）——classpath 铁律：禁止外部 grpc/netty/protobuf 依赖

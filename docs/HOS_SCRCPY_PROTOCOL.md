@@ -2,7 +2,7 @@
 
 > 来源：反编译 `hosScrcpy-1.0.15-beta.jar`（CFR 0.152）+ 真机（MRT-AL10，HarmonyOS NEXT，
 > uitest 6.0.2.3，屏幕 1272x2860@60Hz）实测验证。
-> 验证工具：`tools/sample-capture`（抓流）、`tools/decode-spike`（解码）。
+> 验证工具（M0 spike，已退役删除）；golden 样本保留在 `src/test/resources/sample1.h264`。
 
 ## 1. 组件总览
 
