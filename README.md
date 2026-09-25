@@ -16,11 +16,11 @@ Windows / macOS / Linux 窗口，并用键鼠远程操作。
 |:---:|:---:|
 | <img src="docs/images/001.png" width="380"> | <img src="docs/images/002.png" width="380"> |
 
-| 快捷菜单：置顶/截图/旋转/音量/导航键 | 横屏视频播放：窗口自动跟随旋转 |
+| 快捷菜单：置顶/截图/旋转/音量/导航键 | 竖屏视频播放：高负载零丢帧 |
 |:---:|:---:|
 | <img src="docs/images/003.png" width="380"> | <img src="docs/images/004.png" width="380"> |
 
-| 竖屏视频播放：高负载零丢帧 | |
+| 横屏视频播放：窗口自动跟随旋转 | |
 |:---:|:---:|
 | <img src="docs/images/005.png" width="380"> | |
 
