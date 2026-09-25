@@ -29,7 +29,7 @@ jobs:
         include:
           - os: macos-14
             label: macOS-arm64
-          - os: macos-13
+          - os: macos-15-intel # macos-13 已退役（2025 年底下线），Intel 构建用 macos-15-intel
             label: macOS-x86_64
           - os: windows-latest
             label: windows-x64
