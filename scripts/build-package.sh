@@ -36,21 +36,30 @@ jpackage \
   --dest target/dist
 
 # 2) 安装包（仅 INSTALLER=1；macOS=dmg，Linux=deb）
+# 注意：macOS 自带 bash 3.2，set -u 下空数组 "${EXTRA[@]}" 会报 unbound variable，用显式分支
 if [ "${INSTALLER:-0}" = "1" ]; then
-  EXTRA=()
   if [ "$INSTALLER_TYPE" = "deb" ]; then
-    EXTRA=(--linux-package-name "$APP")
+    jpackage \
+      --type deb \
+      --name "$APP" \
+      --app-version "$APP_VER" \
+      --input target/libs \
+      --main-jar "$(basename "$JAR")" \
+      --main-class com.hnscrcpy.Launcher \
+      --java-options "-Xmx1G" \
+      --linux-package-name "$APP" \
+      --dest target/dist
+  else
+    jpackage \
+      --type "$INSTALLER_TYPE" \
+      --name "$APP" \
+      --app-version "$APP_VER" \
+      --input target/libs \
+      --main-jar "$(basename "$JAR")" \
+      --main-class com.hnscrcpy.Launcher \
+      --java-options "-Xmx1G" \
+      --dest target/dist
   fi
-  jpackage \
-    --type "$INSTALLER_TYPE" \
-    --name "$APP" \
-    --app-version "$APP_VER" \
-    --input target/libs \
-    --main-jar "$(basename "$JAR")" \
-    --main-class com.hnscrcpy.Launcher \
-    --java-options "-Xmx1G" \
-    "${EXTRA[@]}" \
-    --dest target/dist
 fi
 
 echo "==> 产物: target/dist/"
