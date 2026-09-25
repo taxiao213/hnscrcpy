@@ -31,13 +31,21 @@ class DecoderPumpParamSetsTest {
         try {
             pump.onH264Frame(units.get(0)); // SPS/PPS 首包
             Thread.sleep(50);
-            pump.onH264Frame(units.get(1)); // IDR
+            // 帧级多线程解码有 ≤3 帧流水线延迟，多喂几帧把首帧推出来
+            for (int i = 1; i <= 5; i++) {
+                pump.onH264Frame(units.get(i));
+                Thread.sleep(30);
+            }
             waitDecoded(pump, 1, 10_000);
 
-            pump.restart(); // 全新解码器，paramSets 缓存保留
-            pump.onH264Frame(units.get(1)); // 设备侧重连后未重发参数集，直接来 IDR
-            waitDecoded(pump, 2, 10_000);
-            assertThat(pump.decodedCount()).isEqualTo(2);
+            long before = pump.decodedCount();
+            pump.restart(); // 全新解码器，paramSets 缓存保留（extradata 注入）
+            // 设备侧重连后未重发参数集，直接来 IDR；后续帧把流水线推出来
+            for (int i = 1; i <= 8; i++) {
+                pump.onH264Frame(units.get(i));
+                Thread.sleep(30);
+            }
+            waitDecoded(pump, before + 1, 10_000);
         } finally {
             pump.close();
         }

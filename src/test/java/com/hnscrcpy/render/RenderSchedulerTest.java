@@ -36,10 +36,11 @@ class RenderSchedulerTest {
         DecoderPump pump = new DecoderPump();
         pump.start();
         try {
-            // 喂两帧（参数集 + IDR），等解码出画面
+            // 喂参数集 + 数帧（帧级多线程解码有约 1 帧流水线延迟，需后续帧推出首帧）
             var units = H264Decoder.splitAccessUnits(sample);
-            pump.onH264Frame(units.get(0));
-            pump.onH264Frame(units.get(1));
+            for (int i = 0; i < Math.min(6, units.size()); i++) {
+                pump.onH264Frame(units.get(i));
+            }
             long deadline = System.currentTimeMillis() + 10000;
             while (pump.latestFrame() == null && System.currentTimeMillis() < deadline) {
                 Thread.sleep(50);

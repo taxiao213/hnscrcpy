@@ -50,4 +50,16 @@ public final class FrameRenderer {
     public double renderedHeight() {
         return image == null ? 0 : image.getHeight();
     }
+
+    /**
+     * 建议的解码输出尺寸上限：视图实际显示尺寸 ×2（超采样保清晰，封顶解码原生）。
+     * 视图尚未布局完成时返回 null（不限制）。
+     */
+    public int[] desiredOutputSize() {
+        var b = view.getLayoutBounds();
+        if (b.getWidth() < 1 || b.getHeight() < 1) {
+            return null;
+        }
+        return new int[]{(int) Math.ceil(b.getWidth() * 2), (int) Math.ceil(b.getHeight() * 2)};
+    }
 }

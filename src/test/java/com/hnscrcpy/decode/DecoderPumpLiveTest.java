@@ -29,10 +29,11 @@ class DecoderPumpLiveTest {
                 Thread.sleep(30);
             }
             long deadline = System.currentTimeMillis() + 15000;
-            while (pump.decodedCount() < 45 && System.currentTimeMillis() < deadline) {
+            while (pump.decodedCount() < units.size() - 4 && System.currentTimeMillis() < deadline) {
                 Thread.sleep(50);
             }
-            assertThat(pump.decodedCount()).isGreaterThanOrEqualTo(45);
+            // 帧级多线程解码有 ≤3 帧流水线滞留，收尾不冲刷，允许末尾少 4 帧（1 参数集 + 3 滞留）
+            assertThat(pump.decodedCount()).isGreaterThanOrEqualTo(units.size() - 4);
             VideoFrame latest = pump.latestFrame();
             assertThat(latest).isNotNull();
             assertThat(latest.width()).isEqualTo(1272);

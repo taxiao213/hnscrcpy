@@ -41,11 +41,20 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
     private volatile Consumer<Throwable> errorHandler = t -> { };
     /** 最近一条纯参数集消息（首包）。跨重连保留：IDR 不内嵌参数集，重连后设备侧可能不重发。 */
     private volatile byte[] paramSets;
-    private volatile boolean paramsInjected;
+    /**
+     * 解码输出尺寸上限 {w, h}（null 或含 0 表示原始尺寸）。窗口视图较小时
+     * 让 sws 在 YUV→ARGB 同一次转换里完成降采样，像素搬运量降一个数量级。
+     */
+    private volatile int[] outputSizeHint;
 
     /** 流异常/结束回调（gRPC 线程调用）；由会话层接管重连。 */
     public void setErrorHandler(Consumer<Throwable> handler) {
         this.errorHandler = handler != null ? handler : t -> { };
+    }
+
+    /** 设置解码输出尺寸上限；传 null 恢复原始尺寸。渲染侧按视图大小（×2 超采样）更新。 */
+    public void setOutputSizeHint(int[] hint) {
+        this.outputSizeHint = hint;
     }
 
     public void start() {
@@ -56,8 +65,7 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
             pending.clear(); // 重连时丢弃旧流残留帧（新解码器无 SPS/PPS，解不了）
         }
         running = true;
-        paramsInjected = false;
-        decoder = new H264Decoder();
+        decoder = null; // 懒创建：等首个参数集到达后以其为 extradata 建解码器（规避多线程传播竞态）
         pumpThread = new Thread(this::pumpLoop, "decoder-pump");
         pumpThread.setDaemon(true);
         pumpThread.start();
@@ -106,16 +114,22 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
             if (chunk == null) {
                 continue;
             }
-            VideoFrame f = tryDecode(chunk);
-            if (f == null && paramSets != null && !paramsInjected
-                    && !H264Decoder.isParameterSets(chunk)) {
-                // 重连后设备侧可能不重发 SPS/PPS（IDR 也不内嵌），解码器缺参数集
-                // 会持续性 INVALIDDATA；回灌缓存的参数集后重试一次
-                paramsInjected = true;
-                log.info("decode failed without params, injecting cached SPS/PPS");
-                tryDecode(paramSets);
-                f = tryDecode(chunk);
+            if (decoder == null) {
+                // 参数集一律以 extradata 注入（open 前生效，工作线程天然继承），
+                // 带内参数集包不再送解码器。首个参数集未到时 VCL 帧直接丢弃——
+                // 看门狗 IDR 机制会尽快带来参数集或触发重连。
+                if (paramSets != null) {
+                    decoder = new H264Decoder(paramSets);
+                    log.info("decoder created with cached/stream param sets ({} bytes)",
+                            paramSets.length);
+                } else {
+                    continue;
+                }
             }
+            if (H264Decoder.isParameterSets(chunk)) {
+                continue; // 参数集已在 extradata，带内重复包无需再喂
+            }
+            VideoFrame f = tryDecode(chunk);
             if (f != null) {
                 decodedCount.incrementAndGet();
                 latest.set(new VideoFrame(f.width(), f.height(), f.pixels(), f.ptsMicros(),
@@ -126,7 +140,10 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
 
     private VideoFrame tryDecode(byte[] chunk) {
         try {
-            return decoder.decode(chunk);
+            int[] hint = outputSizeHint;
+            return hint != null && hint.length == 2 && hint[0] > 0 && hint[1] > 0
+                    ? decoder.decode(chunk, hint[0], hint[1])
+                    : decoder.decode(chunk);
         } catch (RuntimeException e) {
             log.warn("decode failed: {}", e.toString());
             return null;

@@ -99,6 +99,10 @@ public final class MirrorSession implements AutoCloseable {
                 mapper.setHorizontal(f.width() > f.height());
             }
         });
+        // 自适应降采样：解码输出尺寸跟随视图（×2 超采样，封顶原生），
+        // 窗口较小时 YUV→ARGB+缩放合并在一次 sws 里，像素搬运量降一个数量级
+        renderer.getView().layoutBoundsProperty().addListener((obs, o, b) ->
+                pump.setOutputSizeHint(renderer.desiredOutputSize()));
     }
 
     /** 保存当前画面截图到 ~/Pictures/hnscrcpy/，返回文件路径。 */
@@ -114,7 +118,9 @@ public final class MirrorSession implements AutoCloseable {
         java.nio.file.Path out = dir.resolve("screenshot-" + ts + ".png");
         var img = new java.awt.image.BufferedImage(f.width(), f.height(),
                 java.awt.image.BufferedImage.TYPE_INT_ARGB);
-        img.setRGB(0, 0, f.width(), f.height(), f.pixels(), 0, f.width());
+        int[] px = new int[f.width() * f.height()];
+        f.pixels().get(px);
+        img.setRGB(0, 0, f.width(), f.height(), px, 0, f.width());
         javax.imageio.ImageIO.write(img, "png", out.toFile());
         log.info("screenshot saved: {}", out);
         return out;

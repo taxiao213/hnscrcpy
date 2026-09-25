@@ -55,7 +55,7 @@ class FrameRendererTest {
     void render_publishesImage() throws Exception {
         FrameRenderer renderer = new FrameRenderer();
         int[] pixels = {0xFF112233, 0xFF445566, 0xFF778899, 0xFFAABBCC};
-        onFxThread(() -> renderer.render(new VideoFrame(2, 2, pixels, 0, 1)));
+        onFxThread(() -> renderer.render(new VideoFrame(2, 2, java.nio.IntBuffer.wrap(pixels), 0, 1)));
         assertThat(renderer.renderedWidth()).isEqualTo(2);
         assertThat(renderer.renderedHeight()).isEqualTo(2);
         assertThat(renderer.getView().getImage()).isNotNull();
@@ -66,8 +66,8 @@ class FrameRendererTest {
     void render_dimensionChange_rebuilds() throws Exception {
         FrameRenderer renderer = new FrameRenderer();
         onFxThread(() -> {
-            renderer.render(new VideoFrame(2, 2, new int[4], 0, 1));
-            renderer.render(new VideoFrame(4, 2, new int[8], 0, 2));
+            renderer.render(new VideoFrame(2, 2, java.nio.IntBuffer.wrap(new int[4]), 0, 1));
+            renderer.render(new VideoFrame(4, 2, java.nio.IntBuffer.wrap(new int[8]), 0, 2));
         });
         assertThat(renderer.renderedWidth()).isEqualTo(4);
         assertThat(renderer.renderedHeight()).isEqualTo(2);
