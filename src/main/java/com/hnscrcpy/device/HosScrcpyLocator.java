@@ -5,23 +5,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.nio.file.StandardCopyOption;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 /**
- * 定位 hosScrcpy jar（DevEco Testing / Hypium 插件的一部分）。
- * 查找顺序：环境变量 HOS_SCRCPY_JAR → ~/.hnscrcpy/lib/ → JetBrains 插件目录扫描
- * → 提取内置 jar（自用/团队内部使用场景下随包内置，兜底保证开箱即用）。
+ * 定位 hosScrcpy jar（DevEco Testing / Hypium 插件的一部分，纯 Java 全平台通用）。
+ * 只使用内置 jar（自用/团队内部使用场景随包分发）：首次运行提取到 ~/.hnscrcpy/lib/，
+ * 不扫描本机环境变量、PATH 或 IDE 插件目录——对外部环境零依赖，行为全平台一致。
  */
 public final class HosScrcpyLocator {
 
     private static final Logger log = LoggerFactory.getLogger(HosScrcpyLocator.class);
-    private static final String ENV_JAR = "HOS_SCRCPY_JAR";
     /** 内置 jar 版本；升级时同步替换 src/main/resources/lib/ 下的文件。 */
     static final String BUNDLED_JAR = "hosScrcpy-1.0.15-beta.jar";
 
@@ -29,37 +26,23 @@ public final class HosScrcpyLocator {
     }
 
     public static Optional<Path> locate() {
-        Optional<Path> fromEnv = fromEnv();
-        if (fromEnv.isPresent()) {
-            return fromEnv;
-        }
-        Optional<Path> fromUserLib = scanDir(Platform.userHomeDir().resolve("lib"));
-        if (fromUserLib.isPresent()) {
-            return fromUserLib;
-        }
-        for (Path root : jetbrainsPluginRoots()) {
-            Optional<Path> hit = scanRoot(root);
-            if (hit.isPresent()) {
-                return hit;
-            }
-        }
         return extractBundled();
     }
 
-    /** 兜底：把内置 jar 提取到 ~/.hnscrcpy/lib/（与手动放置的发现路径一致）。 */
+    /** 把内置 jar 提取到 ~/.hnscrcpy/lib/；已提取则直接复用。 */
     static Optional<Path> extractBundled() {
         Path target = Platform.userHomeDir().resolve("lib").resolve(BUNDLED_JAR);
         if (Files.isRegularFile(target)) {
             log.info("hosScrcpy jar already extracted: {}", target);
             return Optional.of(target);
         }
-        try (java.io.InputStream in = HosScrcpyLocator.class.getResourceAsStream("/lib/" + BUNDLED_JAR)) {
+        try (InputStream in = HosScrcpyLocator.class.getResourceAsStream("/lib/" + BUNDLED_JAR)) {
             if (in == null) {
                 log.warn("bundled hosScrcpy jar missing from classpath: /lib/{}", BUNDLED_JAR);
                 return Optional.empty();
             }
             Files.createDirectories(target.getParent());
-            Files.copy(in, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
             log.info("hosScrcpy jar extracted to {}", target);
             return Optional.of(target);
         } catch (IOException e) {
@@ -68,70 +51,8 @@ public final class HosScrcpyLocator {
         }
     }
 
-    private static Optional<Path> fromEnv() {
-        String env = System.getenv(ENV_JAR);
-        if (env == null || env.isBlank()) {
-            return Optional.empty();
-        }
-        Path p = Path.of(env).toAbsolutePath();
-        if (Files.isRegularFile(p)) {
-            log.info("hosScrcpy jar from env {}: {}", ENV_JAR, p);
-            return Optional.of(p);
-        }
-        log.warn("env {} 指向的文件不存在: {}", ENV_JAR, p);
-        return Optional.empty();
-    }
-
-    /** JetBrains 系 IDE 的插件根目录（含 DevEco Studio 的配置目录）。 */
-    static List<Path> jetbrainsPluginRoots() {
-        Path home = Path.of(System.getProperty("user.home"));
-        List<Path> roots = new ArrayList<>();
-        switch (Platform.os()) {
-            case MACOS -> {
-                roots.add(home.resolve("Library/Application Support/JetBrains"));
-                roots.add(home.resolve("Library/Application Support/Huawei"));
-            }
-            case WINDOWS -> roots.add(Path.of(System.getenv("APPDATA"), "JetBrains"));
-            default -> roots.add(home.resolve(".config/JetBrains"));
-        }
-        return roots;
-    }
-
-    /** 扫描 &lt;root&gt;/&lt;ide&gt;/plugins/DevecoTesting-Hypium/lib/hosScrcpy-*.jar。 */
-    static Optional<Path> scanRoot(Path root) {
-        if (!Files.isDirectory(root)) {
-            return Optional.empty();
-        }
-        try (Stream<Path> ides = Files.list(root)) {
-            return ides.filter(Files::isDirectory)
-                    .map(ide -> ide.resolve("plugins/DevecoTesting-Hypium/lib"))
-                    .flatMap(lib -> scanDir(lib).stream())
-                    .max(Comparator.comparing(Path::getFileName));
-        } catch (IOException e) {
-            return Optional.empty();
-        }
-    }
-
-    /** 目录下最新的 hosScrcpy-*.jar。 */
-    static Optional<Path> scanDir(Path dir) {
-        if (!Files.isDirectory(dir)) {
-            return Optional.empty();
-        }
-        try (Stream<Path> files = Files.list(dir)) {
-            return files.filter(p -> p.getFileName().toString().startsWith("hosScrcpy"))
-                    .filter(p -> p.getFileName().toString().endsWith(".jar"))
-                    .max(Comparator.comparing(Path::getFileName));
-        } catch (IOException e) {
-            return Optional.empty();
-        }
-    }
-
-    /** 所有查找路径（含内置提取）都失败时的用户指引。 */
+    /** 内置 jar 提取失败时的用户指引（打包异常的提示，正常不会走到）。 */
     public static String guidance() {
-        return """
-                未找到 hosScrcpy jar，且内置 jar 提取失败。请任选其一：
-                1. 将 hosScrcpy-*.jar 复制到 ~/.hnscrcpy/lib/；
-                2. 设置环境变量 HOS_SCRCPY_JAR 指向该 jar；
-                3. 在 IDE 中安装 DevEco Testing 插件后重试。""";
+        return "内置 hosScrcpy jar 提取失败，安装包可能已损坏，请重新下载安装。";
     }
 }

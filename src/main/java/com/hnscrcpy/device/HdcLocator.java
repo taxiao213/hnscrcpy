@@ -10,20 +10,17 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
 
 /**
- * hdc 定位：环境变量 HDC → PATH → 内置资源提取到 ~/.hnscrcpy/tools/。
- * 解析结果缓存；提取时同时释放 libusb 动态库。
+ * hdc 定位：只使用内置资源（四平台二进制随包分发），首次运行提取到
+ * ~/.hnscrcpy/tools/&lt;platform&gt;/ 并释放 libusb 动态库。
+ * 不扫描环境变量或 PATH——对外部环境零依赖，行为全平台一致。
  */
 public final class HdcLocator {
 
     private static final Logger log = LoggerFactory.getLogger(HdcLocator.class);
-    private static final String ENV_HDC = "HDC";
     private static volatile Path cached;
 
     private HdcLocator() {
@@ -34,55 +31,12 @@ public final class HdcLocator {
         if (hit != null) {
             return hit;
         }
-        hit = findUncached();
+        hit = extractBundled();
+        if (hit == null) {
+            throw new IllegalStateException("内置 hdc 提取失败，安装包可能已损坏，请重新下载安装。");
+        }
         cached = hit;
         return hit;
-    }
-
-    private static Path findUncached() {
-        Optional<Path> fromEnv = fromEnv();
-        if (fromEnv.isPresent()) {
-            return fromEnv.get();
-        }
-        Optional<Path> fromPath = fromPath();
-        if (fromPath.isPresent()) {
-            return fromPath.get();
-        }
-        Path extracted = extractBundled();
-        if (extracted != null) {
-            return extracted;
-        }
-        throw new IllegalStateException(
-                "未找到 hdc。请安装 DevEco Studio / command-line-tools，或设置环境变量 HDC 指向 hdc 可执行文件。");
-    }
-
-    private static Optional<Path> fromEnv() {
-        String env = System.getenv(ENV_HDC);
-        if (env == null || env.isBlank()) {
-            return Optional.empty();
-        }
-        Path p = Path.of(env).toAbsolutePath();
-        if (Files.isExecutable(p)) {
-            log.info("hdc from env {}: {}", ENV_HDC, p);
-            return Optional.of(p);
-        }
-        log.warn("env {} 指向的文件不可执行: {}", ENV_HDC, p);
-        return Optional.empty();
-    }
-
-    private static Optional<Path> fromPath() {
-        String exe = Platform.hdcExecutableName();
-        for (String dir : System.getenv("PATH").split(java.io.File.pathSeparator)) {
-            if (dir.isBlank()) {
-                continue;
-            }
-            Path p = Path.of(dir, exe);
-            if (Files.isExecutable(p)) {
-                log.info("hdc from PATH: {}", p);
-                return Optional.of(p.toAbsolutePath());
-            }
-        }
-        return Optional.empty();
     }
 
     /** 从 classpath 资源提取 hdc + libusb 到 ~/.hnscrcpy/tools/&lt;platform&gt;/。 */

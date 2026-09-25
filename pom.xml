@@ -49,6 +49,14 @@
                 <javacpp.platform>windows-x86_64</javacpp.platform>
             </properties>
         </profile>
+        <profile>
+            <id>linux-x64</id>
+            <activation><os><family>linux</family><arch>amd64</arch></os></activation>
+            <properties>
+                <javafx.platform>linux</javafx.platform>
+                <javacpp.platform>linux-x86_64</javacpp.platform>
+            </properties>
+        </profile>
     </profiles>
 
     <dependencies>
