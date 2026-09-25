@@ -5,7 +5,9 @@ $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
 
 $APP = "hnscrcpy"
-$VER = (mvn -q help:evaluate -Dexpression=project.version -DforceStdout)
+# 直接从 pom.xml 取版本号：PowerShell 调 mvn.cmd 的 -Dexpression 参数会被搅坏，
+# 把整个 pom 当版本号吐出来（CI 实测）
+$VER = (Select-Xml -Path pom.xml -XPath "/*[local-name()='project']/*[local-name()='version']").Node.InnerText.Trim()
 $APP_VER = $VER -replace "-SNAPSHOT", ""
 $JAR = "target/$APP-$VER.jar"
 
