@@ -8,7 +8,13 @@ import org.slf4j.LoggerFactory;
 /**
  * 设备远控。触摸/鼠标/滚轮/旋转走 uitest 通道（hosScrcpy 桥）；
  * 按键走 uinput shell（键值表见 docs/HOS_SCRCPY_PROTOCOL.md，真机验证）。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class DeviceController {
 
     private static final Logger log = LoggerFactory.getLogger(DeviceController.class);

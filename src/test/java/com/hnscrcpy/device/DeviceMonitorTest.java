@@ -9,6 +9,13 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
+ */
+
 class DeviceMonitorTest {
 
     /** 可控的假 HdcClient：只覆写 listTargets/describe，避免真实 hdc 调用。 */

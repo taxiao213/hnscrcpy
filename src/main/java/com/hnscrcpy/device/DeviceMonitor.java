@@ -14,7 +14,13 @@ import java.util.function.Consumer;
 /**
  * 设备轮询监视器：每 2 秒刷新一次设备列表，仅在列表变化时回调。
  * 设备详情（型号/系统版本）按序列号缓存，避免每次轮询都查参数。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class DeviceMonitor {
 
     private static final Logger log = LoggerFactory.getLogger(DeviceMonitor.class);

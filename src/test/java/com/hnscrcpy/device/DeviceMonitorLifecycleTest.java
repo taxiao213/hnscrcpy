@@ -11,6 +11,13 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
+ */
+
 class DeviceMonitorLifecycleTest {
 
     private static final class FakeHdc extends HdcClient {

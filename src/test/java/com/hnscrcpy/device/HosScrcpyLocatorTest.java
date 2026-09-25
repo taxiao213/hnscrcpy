@@ -10,7 +10,14 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** 内置 jar 提取：只走内置资源，不依赖本机任何外部环境。 */
+/** 内置 jar 提取：只走内置资源，不依赖本机任何外部环境。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
+ */
+
 class HosScrcpyLocatorTest {
 
     @Test

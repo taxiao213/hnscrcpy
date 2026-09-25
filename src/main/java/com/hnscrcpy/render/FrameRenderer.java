@@ -10,7 +10,13 @@ import java.nio.IntBuffer;
 /**
  * 零拷贝渲染：WritableImage + PixelBuffer，每帧仅一次数组拷贝进 IntBuffer。
  * 必须在 JavaFX 应用线程调用。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class FrameRenderer {
 
     private final ImageView view = new ImageView();

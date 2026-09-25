@@ -17,7 +17,13 @@ import java.util.concurrent.TimeUnit;
  * hdc 定位：只使用内置资源（四平台二进制随包分发），首次运行提取到
  * ~/.hnscrcpy/tools/&lt;platform&gt;/ 并释放 libusb 动态库。
  * 不扫描环境变量或 PATH——对外部环境零依赖，行为全平台一致。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class HdcLocator {
 
     private static final Logger log = LoggerFactory.getLogger(HdcLocator.class);

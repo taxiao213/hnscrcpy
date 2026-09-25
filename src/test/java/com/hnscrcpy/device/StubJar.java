@@ -13,7 +13,13 @@ import java.util.jar.JarOutputStream;
  * 测试期桩 jar：编译一组 com.huawei.hosscrcpy.api 桩类，
  * 让 HosScrcpyBridge / DeviceController / HosScrcpyStream 在不依赖真实 jar 与设备的情况下被测试。
  * 桩类通过系统属性 stub.log 记录调用（同一 JVM，子加载器共享系统属性）。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class StubJar {
 
     private static final String CONFIG_SRC = """

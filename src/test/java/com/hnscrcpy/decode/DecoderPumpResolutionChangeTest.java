@@ -34,7 +34,13 @@ import static org.bytedeco.ffmpeg.global.avutil.av_frame_make_writable;
  * 回归：横竖屏切换（分辨率变化）时设备重发新参数集，泵必须以新参数集重建解码器——
  * 旧参数集解新分辨率帧就是花屏。测试用 openh264 现场编码一条 160x120 横屏流，
  * 接到竖屏 golden 样本之后，验证解码输出尺寸跟随切换。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 class DecoderPumpResolutionChangeTest {
 
     @Test

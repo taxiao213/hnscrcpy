@@ -10,7 +10,13 @@ import java.util.function.LongConsumer;
 /**
  * 渲染调度：60fps AnimationTimer 轮询最新帧槽位，序列号未变则跳过。
  * 渲染永远只发生在 FX 线程。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class RenderScheduler {
 
     private final DecoderPump pump;

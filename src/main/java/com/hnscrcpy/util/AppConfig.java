@@ -12,7 +12,13 @@ import java.util.Properties;
 
 /**
  * 用户配置持久化：~/.hnscrcpy/config.properties。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class AppConfig {
 
     private static final Logger log = LoggerFactory.getLogger(AppConfig.class);

@@ -27,7 +27,13 @@ import org.slf4j.LoggerFactory;
 /**
  * 投屏窗口：深色背景 + 圆角阴影画面（居中）+ 右侧悬浮竖排工具条 + 底部细状态栏。
  * 样式对标 DevEco Testing 远控面板；快捷键见 README（⌘ 在 Windows/Linux 为 Ctrl）。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class MirrorWindow {
 
     private static final Logger log = LoggerFactory.getLogger(MirrorWindow.class);

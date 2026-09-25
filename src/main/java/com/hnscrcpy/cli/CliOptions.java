@@ -3,7 +3,13 @@ package com.hnscrcpy.cli;
 /**
  * 命令行选项（手动解析，保持零依赖）。
  * 用法见 usage()。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public record CliOptions(String serial, Integer maxSize, Integer bitRate, Integer fps,
                          boolean noControl, boolean help, boolean version) {
 

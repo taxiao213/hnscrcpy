@@ -18,7 +18,13 @@ import java.util.List;
 
 /**
  * hnscrcpy 入口。双击设备启动投屏会话；支持 CLI 自动连接（--serial）。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public class App extends Application {
 
     private static final Logger log = LoggerFactory.getLogger(App.class);

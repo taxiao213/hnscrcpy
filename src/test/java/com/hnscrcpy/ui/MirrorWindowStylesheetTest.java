@@ -8,7 +8,14 @@ import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** MirrorWindow 样式表 URL 的回归测试：data: URL 编码破坏 CSS 会导致样式静默丢失。 */
+/** MirrorWindow 样式表 URL 的回归测试：data: URL 编码破坏 CSS 会导致样式静默丢失。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
+ */
+
 class MirrorWindowStylesheetTest {
 
     @Test

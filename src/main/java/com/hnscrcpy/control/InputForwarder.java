@@ -14,7 +14,13 @@ import java.util.function.DoubleSupplier;
  * - 左键 = 触摸（touchDown/Move/Up），右键/中键 = 鼠标事件透传；
  * - 移动节流 ≤60Hz；
  * - 所有事件在 FX 线程触发，uitest 通道是同步 RPC，因此控制调用走单线程执行器串行化。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class InputForwarder {
 
     private static final Logger log = LoggerFactory.getLogger(InputForwarder.class);

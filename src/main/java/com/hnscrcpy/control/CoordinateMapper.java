@@ -3,7 +3,13 @@ package com.hnscrcpy.control;
 /**
  * 视图坐标 → 设备坐标映射。等比缩放 + 居中留边（letterbox），支持横竖屏切换。
  * 设备竖屏 (w&lt;h) 时，视图也竖直放置；horizontal=true 时设备宽高互换。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class CoordinateMapper {
 
     private final int deviceWidth;

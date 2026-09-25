@@ -11,7 +11,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * 回归：重连后设备侧不重发 SPS/PPS（IDR 也不内嵌参数集）时，
  * 解码器持续性 INVALIDDATA 的画面卡死——泵须回灌缓存的参数集自愈。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 class DecoderPumpParamSetsTest {
 
     @Test

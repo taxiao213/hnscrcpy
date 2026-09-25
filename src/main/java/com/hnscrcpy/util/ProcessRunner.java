@@ -17,7 +17,13 @@ import java.util.concurrent.TimeoutException;
 /**
  * 子进程执行封装：并发消费 stdout/stderr、超时强杀、结果不可变。
  * 所有 hdc 调用都经过这里。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class ProcessRunner {
 
     private static final Logger log = LoggerFactory.getLogger(ProcessRunner.class);

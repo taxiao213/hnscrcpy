@@ -14,7 +14,13 @@ import java.util.function.Consumer;
  * 解码泵：连接流回调与解码器。
  * - gRPC 线程只入队（有界 8，满则丢最旧），绝不阻塞；
  * - 单个泵线程依次取帧 → avcodec 解码 → 结果放入 latest 槽位（只保留最新一帧）。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class DecoderPump implements FrameSink, AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(DecoderPump.class);

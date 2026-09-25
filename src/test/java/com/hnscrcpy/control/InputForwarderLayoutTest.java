@@ -36,7 +36,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * 回归：MirrorWindow 新布局（clip+阴影+pref=0 钉死）下，
  * 画面上的鼠标事件必须仍然冒泡到 InputForwarder 并转发为设备触摸。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 class InputForwarderLayoutTest {
 
     @TempDir

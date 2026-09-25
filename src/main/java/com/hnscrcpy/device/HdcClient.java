@@ -15,7 +15,13 @@ import java.util.regex.Pattern;
 /**
  * hdc 命令封装。所有设备交互（shell / fport / 文件传输）经过这里。
  * 解析逻辑拆为包可见静态方法，便于单测。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public class HdcClient {
 
     private static final Logger log = LoggerFactory.getLogger(HdcClient.class);

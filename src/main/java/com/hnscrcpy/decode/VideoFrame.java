@@ -9,7 +9,13 @@ import java.nio.IntBuffer;
  * pixels 可能是解码器环形复用的原生直接缓冲（零拷贝路径）：访问器每次返回
  * duplicate()（共享内容、独立 position），消费方读取不影响其他持有者，
  * 但不得长期持有——内容会在后续解码中被覆写。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public record VideoFrame(int width, int height, IntBuffer pixels, long ptsMicros, long sequence) {
 
     @Override

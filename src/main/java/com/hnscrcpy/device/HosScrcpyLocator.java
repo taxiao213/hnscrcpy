@@ -15,7 +15,13 @@ import java.util.Optional;
  * 定位 hosScrcpy jar（DevEco Testing / Hypium 插件的一部分，纯 Java 全平台通用）。
  * 只使用内置 jar（自用/团队内部使用场景随包分发）：首次运行提取到 ~/.hnscrcpy/lib/，
  * 不扫描本机环境变量、PATH 或 IDE 插件目录——对外部环境零依赖，行为全平台一致。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class HosScrcpyLocator {
 
     private static final Logger log = LoggerFactory.getLogger(HosScrcpyLocator.class);

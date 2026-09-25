@@ -2,7 +2,13 @@ package com.hnscrcpy.stream;
 
 /**
  * 编码视频流来源。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public interface StreamProvider {
 
     /** 启动流；就绪/帧/错误通过 sink 异步回调。 */

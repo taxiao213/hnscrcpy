@@ -29,7 +29,13 @@ import java.util.function.Consumer;
 /**
  * 一次投屏会话：桥 → 流 → 解码泵 → 渲染调度 + 控制通道。
  * 状态机：IDLE → STREAMING → CLOSED / ERROR。close 幂等，负责全链路清理。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class MirrorSession implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(MirrorSession.class);

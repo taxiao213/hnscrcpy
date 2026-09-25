@@ -21,7 +21,13 @@ import java.util.List;
 /**
  * 右侧悬浮竖排工具条（白底圆角胶囊）：关闭 / 菜单 / 截图 / 旋转 / 电源 /
  * 音量± / 导航键（返回·主页·最近任务）。菜单键弹出带快捷键标注的下拉菜单。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class SideToolbar extends VBox {
 
     /** 工具条与菜单共用的动作集。 */

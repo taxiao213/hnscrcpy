@@ -18,7 +18,13 @@ import java.nio.file.Path;
  * - 编译期零依赖，运行期通过 URLClassLoader 加载；
  * - 父加载器为系统类加载器（本应用不含 grpc/netty/protobuf，委托落空后由 jar 自带实现加载）；
  * - ScreenCapCallback 接口用动态代理实现。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class HosScrcpyBridge implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(HosScrcpyBridge.class);

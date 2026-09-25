@@ -2,7 +2,13 @@ package com.hnscrcpy.device;
 
 /**
  * 一台已连接设备。type 由序列号前缀推断：127.0.* 为模拟器。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public record DeviceInfo(String serial, String model, String osVersion) {
 
     public enum Type { REAL, EMULATOR }

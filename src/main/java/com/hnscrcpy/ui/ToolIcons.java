@@ -11,7 +11,13 @@ import javafx.scene.shape.Shape;
 /**
  * 图标工厂：Material 风格 24dp 矢量路径 + 导航键线框图形。
  * 所有图标按内容包围盒归一化缩放到目标边长，保证视觉尺寸一致。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class ToolIcons {
 
     public static final Color ICON_COLOR = Color.web("#3a3a40");

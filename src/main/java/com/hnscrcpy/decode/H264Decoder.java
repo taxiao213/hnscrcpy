@@ -45,7 +45,13 @@ import static org.bytedeco.ffmpeg.global.swscale.sws_scale;
  * 而 FFmpegFrameGrabber 的 find_stream_info 在裸 h264 直播管道上会阻塞到 EOF
  * （fps 估算需要读完整流），因此不能用 grabber 做实时解码。
  * 输出 ARGB 的 IntBuffer 视图（环形复用原生缓冲，零拷贝），直接对接 JavaFX PixelBuffer。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class H264Decoder implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(H264Decoder.class);

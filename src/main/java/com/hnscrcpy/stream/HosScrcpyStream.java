@@ -9,7 +9,13 @@ import java.nio.file.Path;
 
 /**
  * 基于 hosScrcpy 的 H.264 流来源。start 为异步：流事件经 FrameSink 回调。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class HosScrcpyStream implements StreamProvider {
 
     private static final Logger log = LoggerFactory.getLogger(HosScrcpyStream.class);

@@ -11,6 +11,13 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
+ */
+
 class HdcClientTest {
 
     /** 脚本化 runner：按命令内容返回预设结果并记录命令。 */

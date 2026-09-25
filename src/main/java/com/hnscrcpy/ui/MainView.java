@@ -20,7 +20,13 @@ import java.util.function.Consumer;
 
 /**
  * 设备列表面板：设备列表 + 码率/帧率设置。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public class MainView {
 
     /** 设备列表样式：选中项深色胶囊（替代默认亮蓝），与投屏窗口同一套设计语言。 */

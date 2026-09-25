@@ -4,7 +4,13 @@ import java.util.Locale;
 
 /**
  * 操作系统与架构检测。平台目录名与 resources/hdc/ 下的目录布局一致。
+ *
+ * @Author: taxiao
+ * WeChat：他晓
+ * CSDN:http://blog.csdn.net/yin13753884368/article
+ * Github:https://github.com/taxiao213
  */
+
 public final class Platform {
 
     public enum Os { WINDOWS, MACOS, LINUX, UNKNOWN }
