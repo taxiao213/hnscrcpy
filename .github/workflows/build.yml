@@ -6,6 +6,9 @@ on:
     tags: ["v*"]
   pull_request:
 
+permissions:
+  contents: write # release job 需要创建 GitHub Release
+
 jobs:
   test:
     runs-on: macos-14
@@ -21,12 +24,17 @@ jobs:
   package:
     needs: test
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - os: macos-14 # macOS arm64
-          - os: macos-13 # macOS x86_64
+          - os: macos-14
+            label: mac-arm64
+          - os: macos-13
+            label: mac-x64
           - os: windows-latest
-          - os: ubuntu-latest # Linux x86_64
+            label: windows-x64
+          - os: ubuntu-latest
+            label: linux-x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +43,10 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: maven
-      - name: Package (Unix)
+      - name: Install deb packaging tools (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fakeroot binutils
+      - name: Package (macOS/Linux)
         if: runner.os != 'Windows'
         run: ./scripts/build-package.sh
         env:
@@ -45,8 +56,44 @@ jobs:
         run: ./scripts/build-package.ps1
         env:
           INSTALLER: "1"
+      # 统一整理成规范命名的发布产物：hnscrcpy-<平台>.<格式>
+      - name: Stage release asset (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p target/release-assets
+          cp target/dist/*.dmg "target/release-assets/hnscrcpy-${{ matrix.label }}.dmg"
+      - name: Stage release asset (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force target/release-assets | Out-Null
+          Copy-Item target/dist/*.exe "target/release-assets/hnscrcpy-${{ matrix.label }}-setup.exe"
+      - name: Stage release assets (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p target/release-assets
+          cp target/dist/*.deb "target/release-assets/hnscrcpy-${{ matrix.label }}.deb"
+          tar -C target/dist -czf "target/release-assets/hnscrcpy-${{ matrix.label }}.tar.gz" hnscrcpy
       - uses: actions/upload-artifact@v4
         with:
-          name: hnscrcpy-${{ matrix.os }}
-          path: target/dist/*
+          name: hnscrcpy-${{ matrix.label }}
+          path: target/release-assets/*
           if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: hnscrcpy-*
+          path: dist
+          merge-multiple: true
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
