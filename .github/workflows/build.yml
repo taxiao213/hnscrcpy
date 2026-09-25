@@ -86,6 +86,7 @@ jobs:
     needs: package
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4 # release 正文读 docs/RELEASE_NOTES.md
       - uses: actions/download-artifact@v4
         with:
           pattern: hnscrcpy-*
@@ -95,6 +96,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
-          generate_release_notes: true
+          body_path: docs/RELEASE_NOTES.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
