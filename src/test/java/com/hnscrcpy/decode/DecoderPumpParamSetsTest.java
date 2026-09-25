@@ -51,6 +51,50 @@ class DecoderPumpParamSetsTest {
         }
     }
 
+    @Test
+    @DisplayName("param sets change mid-stream (rotation): decoder recreated and stream recovers")
+    void paramSetsChange_recreatesDecoderAndRecovers() throws Exception {
+        byte[] sample;
+        try (InputStream in = getClass().getResourceAsStream("/sample1.h264")) {
+            assertThat(in).isNotNull();
+            sample = in.readAllBytes();
+        }
+        List<byte[]> units = H264Decoder.splitAccessUnits(sample);
+
+        DecoderPump pump = new DecoderPump();
+        pump.start();
+        try {
+            pump.onH264Frame(units.get(0));
+            Thread.sleep(50);
+            // 帧级多线程解码有 ≤3 帧流水线滞留，多喂几帧把首帧推出来
+            for (int i = 1; i <= 6; i++) {
+                pump.onH264Frame(units.get(i));
+                Thread.sleep(20);
+            }
+            waitDecoded(pump, 1, 10_000);
+            long before = pump.decodedCount();
+
+            // 模拟旋转：设备重发参数集但内容变化（分辨率切换）。
+            // 追加 AUD NAL 制造字节差异，仍是合法参数集包（无 VCL）
+            byte[] aud = {0, 0, 0, 1, 0x09, 0x10};
+            byte[] changed = new byte[units.get(0).length + aud.length];
+            System.arraycopy(units.get(0), 0, changed, 0, units.get(0).length);
+            System.arraycopy(aud, 0, changed, units.get(0).length, aud.length);
+            assertThat(H264Decoder.isParameterSets(changed)).isTrue();
+
+            pump.onH264Frame(changed);
+            Thread.sleep(50);
+            for (int i = 1; i <= 8; i++) {
+                pump.onH264Frame(units.get(i));
+                Thread.sleep(20);
+            }
+            // 不重建解码器的话旧参数解不动新流，帧数会停滞——恢复即证明重建成功
+            waitDecoded(pump, before + 1, 10_000);
+        } finally {
+            pump.close();
+        }
+    }
+
     private static void waitDecoded(DecoderPump pump, long target, long timeoutMs)
             throws InterruptedException {
         long deadline = System.currentTimeMillis() + timeoutMs;

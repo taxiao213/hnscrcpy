@@ -232,11 +232,13 @@ public final class H264Decoder implements AutoCloseable {
         if (sws != null) {
             sws_freeContext(sws);
         }
-        if (rgbaRing != null) {
-            for (BytePointer p : rgbaRing) {
-                p.deallocate();
-            }
-        }
+        // 旧环形缓冲不主动 deallocate：渲染线程可能仍持有着旧帧的 IntBuffer 视图
+        // （尺寸变化瞬间 latest 槽里的旧帧），显式释放会产生 use-after-free 花屏。
+        // 丢掉引用交给 JavaCPP Cleaner 在 GC 时释放，读取方安全。
+        rgbaRing = null;
+        viewRing = null;
+        dstDataRing = null;
+        dstLinesizeRing = null;
         imgW = w;
         imgH = h;
         outW = ow;

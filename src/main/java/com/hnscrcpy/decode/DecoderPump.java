@@ -36,6 +36,8 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
     private final AtomicLong droppedCount = new AtomicLong();
 
     private H264Decoder decoder;
+    /** 当前解码器创建时使用的参数集（用于检测旋转/分辨率变化引起的参数集更新）。 */
+    private byte[] decoderParams;
     private Thread pumpThread;
     private volatile boolean running;
     private volatile Consumer<Throwable> errorHandler = t -> { };
@@ -119,15 +121,21 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
                 // 带内参数集包不再送解码器。首个参数集未到时 VCL 帧直接丢弃——
                 // 看门狗 IDR 机制会尽快带来参数集或触发重连。
                 if (paramSets != null) {
-                    decoder = new H264Decoder(paramSets);
-                    log.info("decoder created with cached/stream param sets ({} bytes)",
-                            paramSets.length);
+                    createDecoder(paramSets);
                 } else {
                     continue;
                 }
             }
             if (H264Decoder.isParameterSets(chunk)) {
-                continue; // 参数集已在 extradata，带内重复包无需再喂
+                // 参数集变化（典型：旋转改分辨率）时旧参数解新帧会花屏——
+                // 必须以新参数集重建解码器；相同则是重复包，直接跳过
+                if (!java.util.Arrays.equals(chunk, decoderParams)) {
+                    log.info("param sets changed ({} -> {} bytes), recreating decoder",
+                            decoderParams == null ? 0 : decoderParams.length, chunk.length);
+                    closeDecoder();
+                    createDecoder(chunk);
+                }
+                continue;
             }
             VideoFrame f = tryDecode(chunk);
             if (f != null) {
@@ -136,6 +144,12 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
                         sequence.incrementAndGet()));
             }
         }
+    }
+
+    private void createDecoder(byte[] params) {
+        decoder = new H264Decoder(params);
+        decoderParams = params;
+        log.info("decoder created with param sets ({} bytes)", params.length);
     }
 
     private VideoFrame tryDecode(byte[] chunk) {
@@ -214,5 +228,6 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
             decoder.close();
             decoder = null;
         }
+        decoderParams = null;
     }
 }
