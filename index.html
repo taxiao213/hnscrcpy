@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>极速跑酷 · 3D Parkour</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234a4f5a'/%3E%3Crect x='5' y='20' width='22' height='3' rx='1.5' fill='%23ffd23f'/%3E%3Crect x='5' y='13' width='22' height='3' rx='1.5' fill='%23ffffff' opacity='.85'/%3E%3Crect x='5' y='6' width='12' height='3' rx='1.5' fill='%23ff7a29'/%3E%3C/svg%3E">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%; overflow: hidden; background: #8fc7ee;
+    font-family: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  /* ===== HUD ===== */
+  .hud { position: fixed; z-index: 5; color: #fff; font-weight: 900; }
+  #score {
+    top: 16px; left: 22px; font-size: 42px; line-height: 1;
+    text-shadow: 0 2px 0 rgba(0,0,0,.30), 0 5px 14px rgba(0,0,0,.28);
+    font-variant-numeric: tabular-nums;
+  }
+  #score .label { display:block; font-size: 12px; letter-spacing: 4px; opacity: .85; margin-bottom: 4px; font-weight: 700; }
+  #best {
+    top: 24px; right: 78px; font-size: 16px; letter-spacing: 1px;
+    text-shadow: 0 2px 6px rgba(0,0,0,.35); text-align: right;
+  }
+  #best .label { display:block; font-size: 11px; letter-spacing: 3px; opacity: .8; font-weight: 700; }
+  #speedo {
+    bottom: 18px; left: 22px; font-size: 14px; font-weight: 700; letter-spacing: 1px;
+    color: rgba(255,255,255,.92); text-shadow: 0 1px 4px rgba(0,0,0,.4);
+  }
+
+  /* ===== 静音按钮 ===== */
+  #mute {
+    position: fixed; top: 16px; right: 16px; z-index: 6;
+    width: 46px; height: 46px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.25);
+    background: rgba(16,22,34,.55); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
+  }
+  #mute:hover { background: rgba(16,22,34,.8); }
+  #mute svg { width: 22px; height: 22px; fill: #fff; }
+
+  /* ===== 面板 ===== */
+  .panel {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(10,16,28,.5); padding: 20px;
+  }
+  .panel.hidden, .hidden { display: none !important; }
+  .card {
+    background: rgba(15,21,33,.9);
+    border: 2px solid rgba(255,255,255,.09);
+    border-radius: 22px; padding: 42px 54px;
+    text-align: center; color: #fff;
+    box-shadow: 0 24px 70px rgba(0,0,0,.4);
+    max-width: 92vw;
+  }
+  .card h1 {
+    font-size: 50px; font-weight: 900; letter-spacing: 3px;
+    margin-bottom: 6px;
+  }
+  .card h1 .accent { color: #ffd23f; }
+  .card .sub { font-size: 14px; letter-spacing: 6px; opacity: .65; font-weight: 700; margin-bottom: 26px; }
+  .keys { display: flex; gap: 22px; justify-content: center; margin: 0 0 26px; flex-wrap: wrap; }
+  .key-item { text-align: center; font-size: 12px; opacity: .8; font-weight: 700; }
+  kbd {
+    display: block; margin-bottom: 7px;
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25);
+    border-bottom-width: 3px; border-radius: 8px;
+    padding: 7px 12px; font-size: 15px; font-weight: 900;
+    min-width: 44px;
+  }
+  .btn {
+    background: #ffd23f; color: #1c1c2b; border: none;
+    font-size: 20px; font-weight: 900; letter-spacing: 2px;
+    padding: 15px 46px; border-radius: 999px; cursor: pointer;
+    box-shadow: 0 6px 0 #cf9c1c;
+    transition: transform .08s, box-shadow .08s;
+  }
+  .btn:hover { background: #ffdc63; }
+  .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #cf9c1c; }
+  .result-num { font-size: 66px; font-weight: 900; color: #ffd23f; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .result-label { font-size: 13px; letter-spacing: 4px; opacity: .7; font-weight: 700; margin-bottom: 2px; }
+  .result-best { margin-top: 14px; font-size: 15px; font-weight: 700; opacity: .9; }
+  .result-best b { color: #ffd23f; font-size: 20px; }
+  .touch-tip { display: none; font-size: 13px; opacity: .75; font-weight: 700; margin-bottom: 22px; letter-spacing: 1px; }
+
+  @media (max-width: 620px) {
+    .card { padding: 32px 26px; }
+    .card h1 { font-size: 34px; letter-spacing: 2px; }
+    .keys { display: none; }
+    .touch-tip { display: block; }
+    #score { font-size: 32px; top: 14px; left: 16px; }
+    #best { font-size: 13px; top: 20px; right: 72px; }
+    #mute { width: 40px; height: 40px; }
+  }
+</style>
+</head>
+<body>
+<div id="game"></div>
+
+<!-- HUD -->
+<div id="score" class="hud hidden"><span class="label">距离 / M</span>0</div>
+<div id="best" class="hud hidden"><span class="label">最高纪录</span><span id="bestVal">0</span> M</div>
+<div id="speedo" class="hud hidden">速度 <span id="speedVal">0</span> KM/H</div>
+
+<!-- 静音 -->
+<button id="mute" aria-label="声音开关">
+  <svg id="iconSound" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>
+</button>
+
+<!-- 开始面板 -->
+<div id="startPanel" class="panel">
+  <div class="card">
+    <h1>极速<span class="accent">跑酷</span></h1>
+    <div class="sub">3D PARKOUR RUN</div>
+    <div class="keys">
+      <div class="key-item"><kbd>←</kbd><kbd>→</kbd>左右移动</div>
+      <div class="key-item"><kbd>A</kbd><kbd>D</kbd>左右移动</div>
+      <div class="key-item"><kbd>空格</kbd>跳跃</div>
+      <div class="key-item"><kbd>↑</kbd><kbd>W</kbd>跳跃</div>
+    </div>
+    <div class="touch-tip">左右滑动屏幕换道 · 向上滑动跳跃</div>
+    <button class="btn" id="startBtn">开始游戏</button>
+  </div>
+</div>
+
+<!-- 结束面板 -->
+<div id="overPanel" class="panel hidden">
+  <div class="card">
+    <div class="result-label">本次距离</div>
+    <div class="result-num" id="finalScore">0</div>
+    <div class="result-best">最高纪录 <b id="finalBest">0</b> M</div>
+    <div style="margin-top:26px"><button class="btn" id="restartBtn">再来一次</button></div>
+    <div class="touch-tip" style="margin-top:16px">左右滑动换道 · 上滑跳跃</div>
+  </div>
+</div>
+
+<!-- Three.js：jsDelivr 主源，失败时自动切换 cdnjs 备用镜像 -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script>window.THREE || document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');</script>
+<script>
+// ============================================================
+//  极速跑酷 —— Three.js 单文件 3D 跑酷
+// ============================================================
+
+// ---------- 常量 ----------
+const LANE_X = [-2.2, 0, 2.2];      // 三条车道的 x 坐标
+const LANE_WIDTH = 2.2;
+const SEG_LEN = 30;                 // 单段路面长度
+const SEG_COUNT = 5;                // 路面段数量
+const SPAWN_Z = -95;                // 障碍生成位置
+const DESPAWN_Z = 14;               // 回收位置
+const GRAVITY = -30;
+const JUMP_V = 10.6;
+const START_SPEED = 13;
+const MAX_SPEED = 31;
+
+const SKY_COLOR = 0x8fc7ee;
+
+// ---------- 游戏状态 ----------
+const game = {
+  state: 'ready',        // ready | playing | over
+  speed: START_SPEED,
+  distance: 0,
+  lane: 1,               // 当前车道 0/1/2
+  px: 0,                 // 玩家实际 x（平滑）
+  py: 0,                 // 玩家脚部 y
+  vy: 0,
+  grounded: true,
+  runPhase: 0,
+  nextSpawnZ: -50,
+  overTimer: 0,
+  deathT: 0,
+  shake: 0
+};
+let highScore = parseInt(localStorage.getItem('parkour_highscore') || '0', 10);
+
+// ---------- DOM ----------
+const $ = id => document.getElementById(id);
+const scoreEl = $('score'), bestEl = $('bestVal'), speedEl = $('speedVal');
+const startPanel = $('startPanel'), overPanel = $('overPanel');
+bestEl.textContent = highScore;
+
+// ---------- 渲染器 / 场景 / 相机 ----------
+const container = $('game');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(SKY_COLOR);
+scene.fog = new THREE.Fog(SKY_COLOR, 42, 125);
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 300);
+camera.position.set(0, 5.1, 9);
+camera.lookAt(0, 1.4, -8);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+container.appendChild(renderer.domElement);
+
+// ---------- 灯光 ----------
+const hemi = new THREE.HemisphereLight(0xcfe8ff, 0x7fae52, 0.9);
+scene.add(hemi);
+
+const sun = new THREE.DirectionalLight(0xfff1d2, 1.15);
+sun.position.set(-9, 17, 7);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 1;
+sun.shadow.camera.far = 70;
+sun.shadow.camera.left = -14;
+sun.shadow.camera.right = 14;
+sun.shadow.camera.top = 16;
+sun.shadow.camera.bottom = -24;
+sun.shadow.bias = -0.0004;
+scene.add(sun);
+
+// ---------- 草地（静止大平面，纯色无滚动参照物） ----------
+const grass = new THREE.Mesh(
+  new THREE.PlaneGeometry(200, 260),
+  new THREE.MeshLambertMaterial({ color: 0x76b54c })
+);
+grass.rotation.x = -Math.PI / 2;
+grass.position.set(0, -0.12, -60);
+grass.receiveShadow = true;
+scene.add(grass);
+
+// ---------- 跑道段（循环滚动） ----------
+const trackMat = new THREE.MeshLambertMaterial({ color: 0x4b5060 });
+const stripeMat = new THREE.MeshLambertMaterial({ color: 0x666d80 });
+const curbMat = new THREE.MeshLambertMaterial({ color: 0xf2f2f2 });
+const trackSegs = [];
+
+for (let i = 0; i < SEG_COUNT; i++) {
+  const seg = new THREE.Group();
+  seg.position.z = -i * SEG_LEN;
+  seg.userData.baseZ = -i * SEG_LEN;
+
+  // 路面
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(7, 0.25, SEG_LEN), trackMat);
+  slab.position.y = -0.125;
+  slab.receiveShadow = true;
+  seg.add(slab);
+
+  // 横向枕木条纹（速度感）
+  for (let z = -SEG_LEN / 2 + 2; z < SEG_LEN / 2; z += 3) {
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(6.7, 0.03, 0.7), stripeMat);
+    stripe.position.set(0, 0.005, z);
+    seg.add(stripe);
+  }
+
+  // 两侧路缘石
+  for (const sx of [-3.62, 3.62]) {
+    const curb = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.22, SEG_LEN), curbMat);
+    curb.position.set(sx, -0.02, 0);
+    curb.receiveShadow = true;
+    seg.add(curb);
+  }
+
+  scene.add(seg);
+  trackSegs.push(seg);
+}
+
+// ---------- 路边树木（对象池，循环复用） ----------
+const trunkGeo = new THREE.CylinderGeometry(0.16, 0.24, 1.1, 6);
+const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8a5a33, flatShading: true, roughness: 0.95, metalness: 0 });
+const leafGeo1 = new THREE.ConeGeometry(1.05, 1.7, 7);
+const leafGeo2 = new THREE.ConeGeometry(0.78, 1.3, 7);
+const leafMats = [
+  new THREE.MeshStandardMaterial({ color: 0x2f9e55, flatShading: true, roughness: 0.9, metalness: 0 }),
+  new THREE.MeshStandardMaterial({ color: 0x27864a, flatShading: true, roughness: 0.9, metalness: 0 }),
+  new THREE.MeshStandardMaterial({ color: 0x3cab5e, flatShading: true, roughness: 0.9, metalness: 0 })
+];
+
+function makeTree() {
+  const t = new THREE.Group();
+  const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+  trunk.position.y = 0.55;
+  trunk.castShadow = true;
+  t.add(trunk);
+  const mat = leafMats[Math.floor(Math.random() * leafMats.length)];
+  const l1 = new THREE.Mesh(leafGeo1, mat);
+  l1.position.y = 1.7; l1.castShadow = true;
+  const l2 = new THREE.Mesh(leafGeo2, mat);
+  l2.position.y = 2.5; l2.castShadow = true;
+  t.add(l1, l2);
+  return t;
+}
+
+const trees = [];
+function resetTree(t, zAhead) {
+  const side = Math.random() < 0.5 ? -1 : 1;
+  t.position.x = side * (5.5 + Math.random() * 14);
+  t.position.z = zAhead !== undefined ? zAhead : -Math.random() * 120;
+  const s = 0.8 + Math.random() * 0.9;
+  t.scale.setScalar(s);
+  t.position.y = 0;
+}
+for (let i = 0; i < 26; i++) {
+  const t = makeTree();
+  resetTree(t);
+  scene.add(t);
+  trees.push(t);
+}
+
+// ---------- 云朵（视差慢滚） ----------
+const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const clouds = [];
+function makeCloud() {
+  const c = new THREE.Group();
+  const n = 3 + Math.floor(Math.random() * 2);
+  for (let i = 0; i < n; i++) {
+    const puff = new THREE.Mesh(new THREE.BoxGeometry(2.6 + Math.random() * 2, 1.1, 1.4), cloudMat);
+    puff.position.set((i - n / 2) * 2.1, Math.random() * 0.5, 0);
+    puff.scale.y = 0.7 + Math.random() * 0.4;
+    c.add(puff);
+  }
+  return c;
+}
+for (let i = 0; i < 9; i++) {
+  const c = makeCloud();
+  c.position.set((Math.random() - 0.5) * 90, 13 + Math.random() * 9, -20 - Math.random() * 110);
+  c.userData.speedFactor = 0.25 + Math.random() * 0.2;
+  scene.add(c);
+  clouds.push(c);
+}
+
+// ---------- 玩家角色（低多边形小人） ----------
+const player = new THREE.Group();
+const skinMat = new THREE.MeshLambertMaterial({ color: 0xffd23f });
+const bodyMat = new THREE.MeshLambertMaterial({ color: 0x19b8c9 });
+const limbMat = new THREE.MeshLambertMaterial({ color: 0x2b57c0 });
+const darkMat = new THREE.MeshLambertMaterial({ color: 0x23262e });
+
+function box(w, h, d, mat, x, y, z) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  m.castShadow = true;
+  return m;
+}
+
+// 头
+const head = box(0.62, 0.56, 0.6, skinMat, 0, 1.45, 0);
+player.add(head);
+// 眼睛
+player.add(box(0.12, 0.14, 0.06, darkMat, -0.15, 1.5, -0.31));
+player.add(box(0.12, 0.14, 0.06, darkMat, 0.15, 1.5, -0.31));
+// 躯干
+const torso = box(0.72, 0.72, 0.5, bodyMat, 0, 0.86, 0);
+player.add(torso);
+
+// 手臂（以肩部为枢轴）
+function makeArm(side) {
+  const g = new THREE.Group();
+  g.position.set(side * 0.47, 1.14, 0);
+  const arm = box(0.2, 0.66, 0.22, skinMat, 0, -0.3, 0);
+  g.add(arm);
+  player.add(g);
+  return g;
+}
+const armL = makeArm(-1), armR = makeArm(1);
+
+// 腿（以髋部为枢轴）
+function makeLeg(side) {
+  const g = new THREE.Group();
+  g.position.set(side * 0.2, 0.55, 0);
+  const leg = box(0.26, 0.55, 0.28, limbMat, 0, -0.27, 0);
+  g.add(leg);
+  player.add(g);
+  return g;
+}
+const legL = makeLeg(-0.72), legR = makeLeg(0.72);
+// 上面位置写错了，修正：两条腿都应在 ±0.2
+legL.position.x = -0.2; legR.position.x = 0.2;
+
+player.position.set(0, 0, 0);
+scene.add(player);
+
+// ---------- 障碍物系统 ----------
+const obstacles = [];  // { mesh, lane, type:'low'|'high', h, d, w }
+const obstaclePool = { low: [], high: [] };
+
+const lowMat = new THREE.MeshLambertMaterial({ color: 0xff7a29 });
+const lowTopMat = new THREE.MeshLambertMaterial({ color: 0xffb066 });
+const highMat = new THREE.MeshLambertMaterial({ color: 0xe8405a });
+const highTopMat = new THREE.MeshLambertMaterial({ color: 0xff8095 });
+
+function buildObstacle(type) {
+  const g = new THREE.Group();
+  if (type === 'low') {
+    const main = box(1.85, 0.9, 1.0, lowMat, 0, 0.45, 0);
+    const top = box(1.9, 0.16, 1.05, lowTopMat, 0, 0.86, 0);
+    // 白色警示斜块
+    for (const sx of [-0.55, 0.55]) {
+      const tag = box(0.3, 0.2, 0.06, curbMat, sx, 0.62, -0.53);
+      g.add(tag);
+    }
+    g.add(main, top);
+  } else {
+    const main = box(1.85, 2.8, 0.85, highMat, 0, 1.4, 0);
+    const top = box(1.9, 0.2, 0.9, highTopMat, 0, 2.75, 0);
+    g.add(main, top);
+    // 侧边警示柱
+    for (const sx of [-0.8, 0.8]) {
+      const post = box(0.14, 2.8, 0.14, curbMat, sx, 1.4, -0.42);
+      g.add(post);
+    }
+  }
+  return g;
+}
+
+function spawnObstacle(lane, type, z) {
+  let mesh;
+  if (obstaclePool[type].length) {
+    mesh = obstaclePool[type].pop();
+  } else {
+    mesh = buildObstacle(type);
+  }
+  mesh.position.set(LANE_X[lane], 0, z);
+  mesh.visible = true;
+  scene.add(mesh);
+  const ob = {
+    mesh, lane, type,
+    w: type === 'low' ? 1.85 : 1.85,
+    h: type === 'low' ? 0.9 : 2.8,
+    d: type === 'low' ? 1.0 : 0.85
+  };
+  obstacles.push(ob);
+  return ob;
+}
+
+// 生成一排障碍，保证至少一条道可通行
+function spawnRow(z) {
+  const r = Math.random();
+  if (r < 0.22) {
+    // 三道全是矮障碍：必须跳跃
+    for (let l = 0; l < 3; l++) spawnObstacle(l, 'low', z);
+  } else if (r < 0.45) {
+    // 两道高墙，留一条道
+    const free = Math.floor(Math.random() * 3);
+    for (let l = 0; l < 3; l++) if (l !== free) spawnObstacle(l, 'high', z);
+  } else if (r < 0.62) {
+    // 一道高墙 + 相邻矮障碍
+    const hl = Math.floor(Math.random() * 3);
+    spawnObstacle(hl, 'high', z);
+    const ll = Math.random() < 0.5 ? Math.max(0, hl - 1) : Math.min(2, hl + 1);
+    if (ll !== hl) spawnObstacle(ll, 'low', z);
+  } else if (r < 0.8) {
+    // 两道矮障碍
+    const free = Math.floor(Math.random() * 3);
+    for (let l = 0; l < 3; l++) if (l !== free) spawnObstacle(l, 'low', z);
+  } else {
+    // 单个障碍，随机类型与车道
+    const l = Math.floor(Math.random() * 3);
+    spawnObstacle(l, Math.random() < 0.5 ? 'low' : 'high', z);
+  }
+}
+
+function recycleObstacles() {
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    const ob = obstacles[i];
+    if (ob.mesh.position.z > DESPAWN_Z) {
+      scene.remove(ob.mesh);
+      ob.mesh.visible = false;
+      obstaclePool[ob.type].push(ob.mesh);
+      obstacles.splice(i, 1);
+    }
+  }
+}
+
+// ---------- 音效（原生 Web Audio 合成） ----------
+let audioCtx = null;
+let muted = localStorage.getItem('parkour_muted') === '1';
+
+function ensureAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+function tone(f0, f1, dur, type, vol) {
+  if (muted || !audioCtx) return;
+  const t = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(f0, t);
+  o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(t); o.stop(t + dur);
+}
+function jumpSnd() { tone(260, 540, 0.18, 'triangle', 0.22); }
+function landSnd() { tone(180, 90, 0.1, 'sine', 0.14); }
+function hitSnd() {
+  if (muted || !audioCtx) return;
+  const len = Math.floor(audioCtx.sampleRate * 0.35);
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const f = audioCtx.createBiquadFilter();
+  f.type = 'lowpass'; f.frequency.value = 900;
+  const g = audioCtx.createGain(); g.gain.value = 0.32;
+  src.connect(f); f.connect(g); g.connect(audioCtx.destination);
+  src.start();
+  tone(140, 38, 0.4, 'sawtooth', 0.24);
+}
+
+const iconSound = $('iconSound');
+function updateMuteIcon() {
+  iconSound.innerHTML = muted
+    ? '<path d="M3 9v6h4l5 5V4L7 9H3zm13.6 3l2.7-2.7-1.4-1.4-2.7 2.7-2.7-2.7-1.4 1.4 2.7 2.7-2.7 2.7 1.4 1.4 2.7-2.7 2.7 2.7 1.4-1.4z"/>'
+    : '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/>';
+}
+$('mute').addEventListener('click', () => {
+  muted = !muted;
+  localStorage.setItem('parkour_muted', muted ? '1' : '0');
+  if (!muted) ensureAudio();
+  updateMuteIcon();
+});
+updateMuteIcon();
+
+// ---------- 输入：键盘 ----------
+function moveLeft() { if (game.state === 'playing' && game.lane > 0) game.lane--; }
+function moveRight() { if (game.state === 'playing' && game.lane < 2) game.lane++; }
+function jump() {
+  if (game.state === 'playing' && game.grounded) {
+    game.vy = JUMP_V;
+    game.grounded = false;
+    jumpSnd();
+  }
+}
+
+addEventListener('keydown', e => {
+  const k = e.key;
+  if (k === 'ArrowLeft' || k === 'a' || k === 'A') { moveLeft(); e.preventDefault(); }
+  else if (k === 'ArrowRight' || k === 'd' || k === 'D') { moveRight(); e.preventDefault(); }
+  else if (k === 'ArrowUp' || k === 'w' || k === 'W') { jump(); e.preventDefault(); }
+  else if (k === ' ') {
+    e.preventDefault();
+    if (e.repeat) return;
+    if (game.state === 'ready') startGame();
+    else if (game.state === 'over' && game.overTimer > 0.9) startGame();
+    else jump();
+  } else if (k === 'Enter') {
+    if (game.state === 'ready') startGame();
+    else if (game.state === 'over' && game.overTimer > 0.9) startGame();
+  }
+});
+
+// ---------- 输入：触摸滑动 ----------
+let tX0 = 0, tY0 = 0;
+addEventListener('touchstart', e => {
+  if (e.target.closest('.btn') || e.target.closest('#mute')) return;
+  tX0 = e.changedTouches[0].clientX;
+  tY0 = e.changedTouches[0].clientY;
+}, { passive: true });
+addEventListener('touchend', e => {
+  if (e.target.closest('.btn') || e.target.closest('#mute')) return;
+  const dx = e.changedTouches[0].clientX - tX0;
+  const dy = e.changedTouches[0].clientY - tY0;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    if (dx > 26) moveRight();
+    else if (dx < -26) moveLeft();
+  } else if (dy < -26) {
+    jump();
+  }
+}, { passive: true });
+
+// ---------- 碰撞检测（AABB） ----------
+function checkCollisions() {
+  const px = game.px, py = game.py;
+  const PHW = 0.34, PHD = 0.34;
+  for (const ob of obstacles) {
+    const ox = ob.mesh.position.x, oz = ob.mesh.position.z;
+    if (Math.abs(px - ox) < PHW + ob.w / 2 &&
+        Math.abs(oz) < PHD + ob.d / 2 &&
+        py < ob.h) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// ---------- 游戏流程 ----------
+function startGame() {
+  ensureAudio();
+  while (obstacles.length) {
+    const ob = obstacles.pop();
+    scene.remove(ob.mesh);
+    obstaclePool[ob.type].push(ob.mesh);
+  }
+  game.state = 'playing';
+  game.speed = START_SPEED;
+  game.distance = 0;
+  game.lane = 1;
+  game.px = 0; game.py = 0; game.vy = 0;
+  game.grounded = true;
+  game.nextSpawnZ = -70;
+  game.overTimer = 0; game.deathT = 0; game.shake = 0;
+  player.visible = true;
+  player.position.set(0, 0, 0);
+  player.rotation.set(0, 0, 0);
+  startPanel.classList.add('hidden');
+  overPanel.classList.add('hidden');
+  scoreEl.classList.remove('hidden');
+  $('best').classList.remove('hidden');
+  $('speedo').classList.remove('hidden');
+  scoreEl.textContent = '0';
+  speedEl.textContent = Math.round(START_SPEED * 3.6);
+}
+
+function gameOver() {
+  game.state = 'over';
+  game.overTimer = 0;
+  game.deathT = 0;
+  game.shake = 0.8;
+  hitSnd();
+  const d = Math.floor(game.distance);
+  if (d > highScore) {
+    highScore = d;
+    localStorage.setItem('parkour_highscore', String(d));
+  }
+  $('finalScore').textContent = d;
+  $('finalBest').textContent = highScore;
+  bestEl.textContent = highScore;
+}
+
+$('startBtn').addEventListener('click', startGame);
+$('restartBtn').addEventListener('click', startGame);
+
+// ---------- 世界滚动 ----------
+function scrollWorld(move) {
+  for (const seg of trackSegs) {
+    seg.position.z += move;
+    if (seg.position.z > SEG_LEN) seg.position.z -= SEG_LEN * SEG_COUNT;
+  }
+  for (const t of trees) {
+    t.position.z += move;
+    if (t.position.z > DESPAWN_Z) resetTree(t, t.position.z - 130 - Math.random() * 25);
+  }
+  for (const c of clouds) {
+    c.position.z += move * c.userData.speedFactor;
+    if (c.position.z > 20) {
+      c.position.z -= 150;
+      c.position.x = (Math.random() - 0.5) * 90;
+    }
+  }
+  for (const ob of obstacles) ob.mesh.position.z += move;
+}
+
+// ---------- 角色动画 ----------
+function runAnim() {
+  if (game.state === 'playing' && game.grounded) {
+    const s = Math.sin(game.runPhase);
+    legL.rotation.x = s * 0.85;
+    legR.rotation.x = -s * 0.85;
+    armL.rotation.x = -s * 0.7;
+    armR.rotation.x = s * 0.7;
+    head.position.y = 1.45 + Math.abs(Math.cos(game.runPhase)) * 0.05;
+  } else if (game.state === 'playing') {
+    legL.rotation.x = 0.65;
+    legR.rotation.x = -0.35;
+    armL.rotation.x = -1.25;
+    armR.rotation.x = -1.25;
+  } else if (game.state === 'ready') {
+    const s = Math.sin(game.runPhase);
+    legL.rotation.x = s * 0.3;
+    legR.rotation.x = -s * 0.3;
+    armL.rotation.x = -s * 0.25;
+    armR.rotation.x = s * 0.25;
+  }
+}
+
+// ---------- 相机 ----------
+function updateCamera(dt) {
+  const targetX = game.px * 0.28;
+  camera.position.x += (targetX - camera.position.x) * Math.min(1, dt * 6);
+  camera.position.y = 5.1;
+  if (game.shake > 0) {
+    camera.position.x += (Math.random() - 0.5) * game.shake * 0.5;
+    camera.position.y += (Math.random() - 0.5) * game.shake * 0.5;
+    game.shake = Math.max(0, game.shake - dt * 1.6);
+  }
+  camera.lookAt(camera.position.x * 0.6, 1.4, -8);
+}
+
+// ---------- 主循环 ----------
+const clock = new THREE.Clock();
+
+function update(dt) {
+  if (game.state === 'ready') {
+    game.runPhase += dt * 5;
+    player.position.set(0, 0, 0);
+    runAnim();
+  } else if (game.state === 'playing') {
+    game.speed = Math.min(MAX_SPEED, game.speed + dt * 0.32);
+    const move = game.speed * dt;
+    game.distance += move;
+
+    // 横向移动（平滑插值）
+    game.px += (LANE_X[game.lane] - game.px) * Math.min(1, dt * 12);
+
+    // 跳跃物理
+    if (!game.grounded) {
+      game.vy += GRAVITY * dt;
+      game.py += game.vy * dt;
+      if (game.py <= 0) {
+        game.py = 0; game.vy = 0; game.grounded = true;
+        landSnd();
+      }
+    }
+
+    scrollWorld(move);
+
+    // 障碍生成节奏（锚点随世界流动，到阈值生成后推到远处）
+    game.nextSpawnZ += move;
+    if (game.nextSpawnZ > -70) {
+      spawnRow(game.nextSpawnZ);
+      game.nextSpawnZ -= game.speed * (0.85 + Math.random() * 0.75);
+    }
+    recycleObstacles();
+
+    if (checkCollisions()) { gameOver(); }
+
+    game.runPhase += dt * (6 + game.speed * 0.55);
+    runAnim();
+    player.position.x = game.px;
+    player.position.y = game.py;
+
+    scoreEl.textContent = Math.floor(game.distance);
+    speedEl.textContent = Math.round(game.speed * 3.6);
+  } else if (game.state === 'over') {
+    game.overTimer += dt;
+    game.deathT += dt;
+    game.speed = Math.max(0, game.speed - dt * 26);
+    const move = game.speed * dt;
+    if (move > 0) {
+      scrollWorld(move);
+      recycleObstacles();
+    }
+    // 玩家前扑倒地
+    const k = Math.min(game.deathT / 0.7, 1);
+    player.position.z = -k * 6;
+    player.position.y = Math.sin(k * Math.PI) * 1.1;
+    player.rotation.x = k * Math.PI * 0.58;
+    if (game.overTimer > 0.9) overPanel.classList.remove('hidden');
+  }
+  updateCamera(dt);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.1);
+  update(dt);
+  renderer.render(scene, camera);
+}
+animate();
+
+// ---------- 低帧率自动降质（连续 2 秒帧率不足则关阴影、降像素比） ----------
+let fpsAccum = 0, fpsFrames = 0, fpsChecks = 0, degraded = false;
+let lastFpsT = performance.now();
+function fpsWatch() {
+  const now = performance.now();
+  const d = now - lastFpsT;
+  lastFpsT = now;
+  fpsAccum += d; fpsFrames++;
+  if (fpsAccum >= 1000) {
+    const fps = fpsFrames * 1000 / fpsAccum;
+    fpsAccum = 0; fpsFrames = 0; fpsChecks++;
+    if (!degraded && fpsChecks >= 2 && fps < 40) {
+      degraded = true;
+      renderer.shadowMap.enabled = false;
+      renderer.setPixelRatio(1);
+      sun.castShadow = false;
+      scene.traverse(o => { if (o.isMesh) o.material.needsUpdate = true; });
+    }
+  }
+  requestAnimationFrame(fpsWatch);
+}
+fpsWatch();
+
+// ---------- 自适应窗口 ----------
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

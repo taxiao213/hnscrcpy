@@ -43,10 +43,10 @@ GitHub [Releases](https://github.com/taxiao213/hnscrcpy/releases) 提供四平�
 
 | 平台 | 产物 |
 |------|------|
-| macOS Apple Silicon | `hnscrcpy-mac-arm64.dmg` |
-| macOS Intel | `hnscrcpy-mac-x64.dmg` |
-| Windows x64 | `hnscrcpy-windows-x64-setup.exe` |
-| Linux x86_64 | `hnscrcpy-linux-x64.deb` / `.tar.gz` 免安装包 |
+| macOS Apple Silicon | `hnscrcpy-v<版本>-macOS-arm64.dmg` |
+| macOS Intel | `hnscrcpy-v<版本>-macOS-x86_64.dmg` |
+| Windows x64 | `hnscrcpy-v<版本>-windows-x64-setup.exe` |
+| Linux x86_64 | `hnscrcpy-v<版本>-linux-x64.deb` / `.tar.gz` 免安装包 |
 
 > macOS 首次打开如提示"未受信任的开发者"：右键 → 打开。
 

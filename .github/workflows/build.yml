@@ -28,9 +28,9 @@ jobs:
       matrix:
         include:
           - os: macos-14
-            label: mac-arm64
+            label: macOS-arm64
           - os: macos-13
-            label: mac-x64
+            label: macOS-x86_64
           - os: windows-latest
             label: windows-x64
           - os: ubuntu-latest
@@ -56,27 +56,28 @@ jobs:
         run: ./scripts/build-package.ps1
         env:
           INSTALLER: "1"
-      # 统一整理成规范命名的发布产物：hnscrcpy-<平台>.<格式>
+      # 产物命名：hnscrcpy-<tag>-<平台>.<格式>（tag v1.0.0 → hnscrcpy-v1.0.0-macOS-arm64.dmg；
+      # main 分支构建时 ref_name=main，产物为 hnscrcpy-main-* 仅作 CI 验证）
       - name: Stage release asset (macOS)
         if: runner.os == 'macOS'
         run: |
           mkdir -p target/release-assets
-          cp target/dist/*.dmg "target/release-assets/hnscrcpy-${{ matrix.label }}.dmg"
+          cp target/dist/*.dmg "target/release-assets/hnscrcpy-${{ github.ref_name }}-${{ matrix.label }}.dmg"
       - name: Stage release asset (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force target/release-assets | Out-Null
-          Copy-Item target/dist/*.exe "target/release-assets/hnscrcpy-${{ matrix.label }}-setup.exe"
+          Copy-Item target/dist/*.exe "target/release-assets/hnscrcpy-${{ github.ref_name }}-${{ matrix.label }}-setup.exe"
       - name: Stage release assets (Linux)
         if: runner.os == 'Linux'
         run: |
           mkdir -p target/release-assets
-          cp target/dist/*.deb "target/release-assets/hnscrcpy-${{ matrix.label }}.deb"
-          tar -C target/dist -czf "target/release-assets/hnscrcpy-${{ matrix.label }}.tar.gz" hnscrcpy
+          cp target/dist/*.deb "target/release-assets/hnscrcpy-${{ github.ref_name }}-${{ matrix.label }}.deb"
+          tar -C target/dist -czf "target/release-assets/hnscrcpy-${{ github.ref_name }}-${{ matrix.label }}.tar.gz" hnscrcpy
       - uses: actions/upload-artifact@v4
         with:
-          name: hnscrcpy-${{ matrix.label }}
+          name: hnscrcpy-${{ github.ref_name }}-${{ matrix.label }}
           path: target/release-assets/*
           if-no-files-found: error
 
