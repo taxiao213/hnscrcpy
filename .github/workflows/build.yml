@@ -86,16 +86,22 @@ jobs:
     needs: package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # release 正文读 docs/RELEASE_NOTES.md
+      - uses: actions/checkout@v4 # release 正文按 tag 读 docs/RELEASE_NOTES_<tag>.md
       - uses: actions/download-artifact@v4
         with:
           pattern: hnscrcpy-*
           path: dist
           merge-multiple: true
+      # 重打同名 tag 时该 Release 已存在：action-gh-release 只更新产物不更新正文，
+      # 先删除旧 Release（保留 tag）再创建，确保正文来自本 tag 的 notes 文件
+      - name: Delete existing release (re-tag safe)
+        run: gh release delete "${{ github.ref_name }}" --yes --cleanup-tag=false || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
-          body_path: docs/RELEASE_NOTES.md
+          body_path: docs/RELEASE_NOTES_${{ github.ref_name }}.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
