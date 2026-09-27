@@ -52,6 +52,12 @@ public final class MirrorSession implements AutoCloseable {
      * 推一帧），连续两轮无新帧即判死重连。
      */
     private static final long WATCHDOG_INTERVAL_MS = 10_000;
+    /**
+     * 降采样 hint 量化步长（px）。视图 layoutBounds 有亚像素抖动（±1-2px），
+     * 直接 ceil(×2) 会在相邻值间高频翻转，导致 sws 缩放器与环形缓冲逐帧重建
+     * （每次 ~18MB 分配）拖垮解码；量化 + 迟滞吸收抖动，尺寸真变了才重建。
+     */
+    private static final int HINT_QUANTUM = 8;
 
     public enum State { IDLE, STREAMING, ERROR, CLOSED }
 
@@ -70,6 +76,8 @@ public final class MirrorSession implements AutoCloseable {
     private final java.util.concurrent.atomic.AtomicBoolean reconnectPending =
             new java.util.concurrent.atomic.AtomicBoolean();
     private ScheduledFuture<?> watchdogTask;
+    /** 当前生效的降采样 hint（量化后）；null 表示尚未初始化。 */
+    private volatile int[] currentHint;
 
     private volatile State state = State.IDLE;
 
@@ -106,9 +114,23 @@ public final class MirrorSession implements AutoCloseable {
             }
         });
         // 自适应降采样：解码输出尺寸跟随视图（×2 超采样，封顶原生），
-        // 窗口较小时 YUV→ARGB+缩放合并在一次 sws 里，像素搬运量降一个数量级
-        renderer.getView().layoutBoundsProperty().addListener((obs, o, b) ->
-                pump.setOutputSizeHint(renderer.desiredOutputSize()));
+        // 窗口较小时 YUV→ARGB+缩放合并在一次 sws 里，像素搬运量降一个数量级。
+        // hint 量化到 HINT_QUANTUM 并带迟滞：亚像素抖动不触发缩放器重建
+        renderer.getView().layoutBoundsProperty().addListener((obs, o, b) -> {
+            int[] hint = renderer.desiredOutputSize();
+            if (hint == null) {
+                return;
+            }
+            int w = hint[0] / HINT_QUANTUM * HINT_QUANTUM;
+            int h = hint[1] / HINT_QUANTUM * HINT_QUANTUM;
+            int[] cur = currentHint;
+            if (cur != null && Math.abs(cur[0] - w) < HINT_QUANTUM
+                    && Math.abs(cur[1] - h) < HINT_QUANTUM) {
+                return;
+            }
+            currentHint = new int[]{w, h};
+            pump.setOutputSizeHint(currentHint);
+        });
     }
 
     /** 保存当前画面截图到 ~/Pictures/hnscrcpy/，返回文件路径。 */

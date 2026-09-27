@@ -48,6 +48,7 @@ public final class MirrorWindow {
     private MirrorSession session;
     private DeviceInfo device;
     private boolean alwaysOnTop = false;
+    private Runnable onClosed;
 
     public void open(DeviceInfo device, VideoConfig config, boolean controlEnabled) {
         this.device = device;
@@ -106,7 +107,11 @@ public final class MirrorWindow {
         stage.setMinWidth(360);
         stage.setMinHeight(560);
         stage.setScene(scene);
+        // onCloseRequest 仅拦截标题栏 ✕；工具条关闭走 stage.close() 不触发它。
+        // 清理统一挂 setOnHidden（所有关闭路径必经），否则留下僵尸会话无限重连，
+        // 与活跃会话互踢设备侧 scrcpy 单例（2026-09-27 卡顿风暴根因）
         stage.setOnCloseRequest(e -> closeSession());
+        stage.setOnHidden(e -> closeSession());
 
         try {
             session.start();
@@ -287,6 +292,23 @@ public final class MirrorWindow {
         if (session != null) {
             session.close();
             session = null;
+            if (onClosed != null) {
+                onClosed.run();
+            }
         }
+    }
+
+    /** 注册会话清理完成回调（App 据此维护 serial→窗口映射）。 */
+    public void setOnClosed(Runnable onClosed) {
+        this.onClosed = onClosed;
+    }
+
+    /** 已有同设备窗口时置前并聚焦，避免重复开会话互踢。 */
+    public void requestFocus() {
+        if (stage.isIconified()) {
+            stage.setIconified(false);
+        }
+        stage.toFront();
+        stage.requestFocus();
     }
 }

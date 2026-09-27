@@ -14,7 +14,9 @@ import javafx.stage.Stage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * hnscrcpy 入口。双击设备启动投屏会话；支持 CLI 自动连接（--serial）。
@@ -36,6 +38,8 @@ public class App extends Application {
     private AppConfig config;
     private boolean noControl;
     private boolean autoConnectDone;
+    /** serial → 已打开的投屏窗口；同设备只允许一个会话（设备侧 scrcpy 单例）。 */
+    private final Map<String, MirrorWindow> mirrorWindows = new HashMap<>();
 
     @Override
     public void start(Stage stage) {
@@ -87,7 +91,17 @@ public class App extends Application {
         config.setBitRateMbps(mainView.videoConfig().bitRateMbps());
         config.setFps(mainView.videoConfig().fps());
         config.save();
-        new MirrorWindow().open(device, mainView.videoConfig(), !noControl);
+        // 设备侧 scrcpy 是单例：同设备第二个会话会把第一个踢断流，两边陷入重连互踢。
+        // 已有同设备投屏窗口时只聚焦，不再开会话
+        MirrorWindow existing = mirrorWindows.get(device.serial());
+        if (existing != null) {
+            existing.requestFocus();
+            return;
+        }
+        MirrorWindow window = new MirrorWindow();
+        mirrorWindows.put(device.serial(), window);
+        window.setOnClosed(() -> mirrorWindows.remove(device.serial()));
+        window.open(device, mainView.videoConfig(), !noControl);
     }
 
     public static void main(String[] args) {
