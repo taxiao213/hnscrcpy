@@ -204,7 +204,7 @@ CI (GitHub Actions matrix，见 .github/workflows/build.yml)
 | R3 | 设备侧机制 | 见 HOS_SCRCPY_PROTOCOL.md：推送 .so → uitest 扩展启动 → gRPC over unix socket |
 | R4 | 保持唤醒 | 无需额外命令：建流时 power-shell wakeup；server 端 disable power off render control |
 | R5 | 帧格式 | Annex B，4 字节起始码，SPS/PPS 内嵌首包，每消息一帧，按变化推流 |
-| R6 | 再分发合规 | 不随包分发；运行时自动发现 JetBrains 插件目录或用户手动放置 |
+| R6 | 再分发合规 | ~~不随包分发~~ 决策变更（0b9f55f）：jar/hdc 内置随包分发，THIRD-PARTY-NOTICES.md 第一节如实声明华为版权与「仅供学习研究、禁止商用」限制 |
 
 ## 8. 关键风险与缓解（M0 后更新）
 
@@ -215,5 +215,5 @@ CI (GitHub Actions matrix，见 .github/workflows/build.yml)
 | R-3 | 按变化推流被误判为断流 | 断流判定基于 gRPC 状态+isOnline，不基于帧间隔；UI 状态栏体现"画面静止" |
 | R-4 | isOnline 5s 超时偶发误判 | DeviceMonitor/连接前重试 ≥2 次 |
 | R-5 | macOS Gatekeeper 拦截未签名包 | dmg 附安装说明；优先接入开发者证书签名+公证 |
-| R-6 | hosScrcpy 再分发合规 | ✅ 结论：不内置，运行时自动发现（协议文档 §9） |
+| R-6 | hosScrcpy 再分发合规 | ⚠️ M0 原决策「不内置」已被 0b9f55f 变更为内置（开箱即用优先）；合规妥协以 THIRD-PARTY-NOTICES.md 第一节声明兜底（协议文档 §9） |
 | R-7 | 多设备并发会话 | hosScrcpy 视频端口可配（-p）、本地转发端口随机，但设备侧多实例稳定性未知 → v1 单会话 |

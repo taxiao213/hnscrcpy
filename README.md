@@ -92,6 +92,18 @@ hnscrcpy --no-control          # 只看不控
 - 不支持模拟器（127.0.0.1:5555 等网络设备），仅支持 USB 真机连接
 - 音频转发暂不支持（hosScrcpy 无音频通道）
 
+## 开源许可
+
+hnscrcpy 自有代码以 **[Apache License 2.0](LICENSE)** 授权，`Copyright 2026 taxiao (https://github.com/taxiao213)`。
+
+**使用与分发的几点要求**：
+
+- **保留署名**：再分发或制作衍生品时，必须保留 `LICENSE` 与 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) 的原文及作者署名；不得以「hnscrcpy 作者/官方」名义为衍生品背书（Apache-2.0 不授予商标使用权）
+- **免责**：本软件按「现状」提供，不承诺可用性或不间断运行；使用投屏与远控功能产生的一切后果由使用者自行承担
+- **内置华为组件（重要）**：本工具内置的 `hosScrcpy` jar 与 `hdc` 二进制版权归 **华为** 所有，**不在本项目 Apache-2.0 授权范围内**，未获华为再分发授权。本项目仅供**个人学习与研究**，**禁止商用**；如需商业用途，请自行向华为获取授权。如权利人认为分发方式不当，请联系作者，将立即移除
+
+第三方依赖（FFmpeg、JavaFX 等）的许可信息详见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+
 ## 作者与联系
 
 | 渠道 | 信息 |

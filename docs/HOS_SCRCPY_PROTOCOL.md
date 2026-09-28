@@ -167,6 +167,9 @@ imageScaleSize / extensionName / ip / hdcPort / hdcPath`。
 - hosScrcpy-1.0.15-beta.jar 是华为 **DevEco Testing (Hypium) JetBrains 插件**的组件
   （实测来源：`~/Library/Application Support/JetBrains/<IDE>/plugins/DevecoTesting-Hypium/lib/`），
   jar 内 LICENSE.txt 仅含 Checker Framework MIT 声明，**无华为再分发授权**。
-- 结论：**hnscrcpy 不内置该 jar**。运行时自动发现（扫描 JetBrains 插件目录），
-  未发现则引导用户安装 DevEco Testing 插件或手动放置。设备侧 .so（libscrcpy_server*、uitest_agent*）
-  同属华为组件，随 jar 提取推送，不单独分发。
+- M0 原决策：不内置 jar，运行时自动发现（扫描 JetBrains 插件目录），未发现则引导用户
+  手动放置；设备侧 .so（libscrcpy_server*、uitest_agent*）同属华为组件，随 jar 提取推送。
+- **决策变更（0b9f55f，2026-09-25）**：为「全平台开箱即用」，jar 已内置到包内
+  （`src/main/resources/lib/`，运行时提取到 `~/.hnscrcpy/lib/`），hdc 二进制同样内置。
+  此为已知合规妥协，处理方式见 `THIRD-PARTY-NOTICES.md` 第一节：明确版权与授权归属华为、
+  不在 Apache-2.0 授权范围、仅供个人学习研究、禁止商用、权利人可要求移除。

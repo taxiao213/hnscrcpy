@@ -9,11 +9,30 @@
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
+    <name>hnscrcpy</name>
+    <description>鸿蒙 NEXT 投屏远控桌面工具（类似 scrcpy 体验）</description>
+    <url>https://github.com/taxiao213/hnscrcpy</url>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>taxiao213</id>
+            <name>taxiao</name>
+            <url>https://github.com/taxiao213</url>
+        </developer>
+    </developers>
+
     <properties>
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <javafx.version>21.0.4</javafx.version>
-        <javacv.version>1.5.11</javacv.version>
         <ffmpeg.version>7.1-1.5.11</ffmpeg.version>
         <slf4j.version>2.0.13</slf4j.version>
         <logback.version>1.5.6</logback.version>
@@ -69,11 +88,6 @@
         </dependency>
         <dependency>
             <groupId>org.bytedeco</groupId>
-            <artifactId>javacv</artifactId>
-            <version>${javacv.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.bytedeco</groupId>
             <artifactId>ffmpeg</artifactId>
             <version>${ffmpeg.version}</version>
         </dependency>
@@ -81,12 +95,6 @@
             <groupId>org.bytedeco</groupId>
             <artifactId>ffmpeg</artifactId>
             <version>${ffmpeg.version}</version>
-            <classifier>${javacpp.platform}</classifier>
-        </dependency>
-        <dependency>
-            <groupId>org.bytedeco</groupId>
-            <artifactId>openblas</artifactId>
-            <version>0.3.28-1.5.11</version>
             <classifier>${javacpp.platform}</classifier>
         </dependency>
 
