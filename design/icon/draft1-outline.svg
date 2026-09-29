@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- 变体 1：扁平亮蓝 + 白色描线，手机→光束箭头→显示器 -->
+  <rect width="512" height="512" rx="96" fill="#1E8FFF"/>
+  <!-- 手机（描线） -->
+  <g stroke="#FFFFFF" stroke-width="16" fill="none" stroke-linecap="round">
+    <rect x="88" y="156" width="120" height="200" rx="22"/>
+    <line x1="128" y1="180" x2="168" y2="180"/>
+  </g>
+  <rect x="112" y="206" width="72" height="110" rx="10" fill="#FFFFFF" opacity="0.9"/>
+  <!-- 光束：三条箭头 -->
+  <g stroke="#FFFFFF" stroke-width="20" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.95">
+    <line x1="238" y1="236" x2="296" y2="236"/>
+    <polyline points="276,214 300,236 276,258"/>
+  </g>
+  <g stroke="#FFFFFF" stroke-width="16" fill="none" stroke-linecap="round" opacity="0.55">
+    <line x1="234" y1="196" x2="278" y2="196"/>
+    <line x1="234" y1="276" x2="278" y2="276"/>
+  </g>
+  <!-- 显示器（描线） -->
+  <g stroke="#FFFFFF" stroke-width="16" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="312" y="156" width="128" height="152" rx="16"/>
+    <line x1="356" y1="356" x2="396" y2="356"/>
+    <line x1="376" y1="308" x2="376" y2="356"/>
+  </g>
+  <rect x="336" y="180" width="80" height="64" rx="8" fill="#FFFFFF" opacity="0.9"/>
+</svg>

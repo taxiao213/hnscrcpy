@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- 变体 12：水中倒影——屏与它的镜像，一条水平面隔开（"镜像"的本质表达） -->
+  <defs>
+    <linearGradient id="bg12" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5EC2FF"/>
+      <stop offset="0.5" stop-color="#2E8BFF"/>
+      <stop offset="1" stop-color="#1B4FD8"/>
+    </linearGradient>
+    <linearGradient id="scr12" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7ED2FF"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="104" fill="url(#bg12)"/>
+  <!-- 水平面 -->
+  <line x1="56" y1="272" x2="456" y2="272" stroke="#FFFFFF" stroke-width="7" opacity="0.9" stroke-linecap="round"/>
+  <!-- 水面上的屏 -->
+  <g>
+    <rect x="146" y="128" width="220" height="130" rx="20" fill="#FFFFFF"/>
+    <rect x="162" y="143" width="188" height="100" rx="10" fill="url(#scr12)"/>
+    <!-- 屏幕里的内容：一个圆点与光束，表示正在投送 -->
+    <circle cx="196" cy="193" r="12" fill="#FFFFFF"/>
+    <polygon points="222,176 262,193 222,210" fill="#FFFFFF" opacity="0.95"/>
+  </g>
+  <!-- 水面下的倒影（半透明镜像） -->
+  <g opacity="0.32" transform="translate(0,558) scale(1,-1)">
+    <rect x="146" y="128" width="220" height="130" rx="20" fill="#FFFFFF"/>
+    <rect x="162" y="143" width="188" height="100" rx="10" fill="url(#scr12)"/>
+    <circle cx="196" cy="193" r="12" fill="#FFFFFF"/>
+    <polygon points="222,176 262,193 222,210" fill="#FFFFFF" opacity="0.95"/>
+  </g>
+  <!-- 涟漪短线 -->
+  <g stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" opacity="0.45">
+    <line x1="120" y1="330" x2="200" y2="330"/>
+    <line x1="300" y1="360" x2="396" y2="360"/>
+    <line x1="180" y1="392" x2="260" y2="392"/>
+  </g>
+</svg>

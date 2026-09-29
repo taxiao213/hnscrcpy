@@ -53,6 +53,8 @@ public class App extends Application {
         monitor.start();
 
         stage.setTitle("hnscrcpy — 鸿蒙 NEXT 投屏");
+        stage.getIcons().add(new javafx.scene.image.Image(
+                getClass().getResourceAsStream("/icon.png")));
         stage.setScene(new Scene(mainView.getRoot(), 420, 400));
         stage.setOnCloseRequest(e -> monitor.stop());
         stage.show();

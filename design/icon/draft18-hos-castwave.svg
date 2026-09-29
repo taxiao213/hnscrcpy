@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- 变体 18：HarmonyOS 规范——单屏 + 投射波纹（系统「无线投屏」语言的规范重铸） -->
+  <defs>
+    <linearGradient id="bg18" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5BBCFF"/>
+      <stop offset="1" stop-color="#2160E8"/>
+    </linearGradient>
+    <linearGradient id="gl18" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#D8EBFF"/>
+    </linearGradient>
+    <filter id="sh18" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#0A2E80" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="110" fill="url(#bg18)"/>
+  <path d="M 0 0 L 512 0 L 0 400 Z" fill="#FFFFFF" opacity="0.10"/>
+  <!-- 大屏（渐变主体） -->
+  <g filter="url(#sh18)">
+    <rect x="96" y="122" width="320" height="236" rx="30" fill="none" stroke="url(#gl18)" stroke-width="26"/>
+  </g>
+  <!-- 左下角投射点与波纹（主体渐变色） -->
+  <circle cx="170" cy="292" r="14" fill="#FFFFFF"/>
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round">
+    <path d="M 162 226 A 68 68 0 0 1 232 294" stroke-width="18"/>
+    <path d="M 158 158 A 136 136 0 0 1 296 296" stroke-width="18" opacity="0.6"/>
+  </g>
+</svg>

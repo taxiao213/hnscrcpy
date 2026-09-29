@@ -17,8 +17,8 @@ cp "$JAR" target/libs/
 OS=$(uname -s)
 ARCH=$(uname -m)
 case "$OS/$ARCH" in
-  Darwin/arm64|Darwin/x86_64) INSTALLER_TYPE=dmg ;;
-  Linux/*) INSTALLER_TYPE=deb ;; # 需 fakeroot/dpkg（CI ubuntu-latest 已装）
+  Darwin/arm64|Darwin/x86_64) INSTALLER_TYPE=dmg; ICON_ARG=(--icon "design/icon/hnscrcpy.icns") ;;
+  Linux/*) INSTALLER_TYPE=deb; ICON_ARG=(--icon "design/icon/hnscrcpy-linux.png") ;; # 需 fakeroot/dpkg（CI ubuntu-latest 已装）
   *) echo "Windows 请使用 scripts/build-package.ps1"; exit 1 ;;
 esac
 
@@ -33,6 +33,7 @@ jpackage \
   --main-jar "$(basename "$JAR")" \
   --main-class com.hnscrcpy.Launcher \
   --java-options "-Xmx1G" \
+  "${ICON_ARG[@]}" \
   --dest target/dist
 
 # 2) 安装包（仅 INSTALLER=1；macOS=dmg，Linux=deb）
@@ -48,6 +49,7 @@ if [ "${INSTALLER:-0}" = "1" ]; then
       --main-class com.hnscrcpy.Launcher \
       --java-options "-Xmx1G" \
       --linux-package-name "$APP" \
+      "${ICON_ARG[@]}" \
       --dest target/dist
   else
     jpackage \
@@ -58,6 +60,7 @@ if [ "${INSTALLER:-0}" = "1" ]; then
       --main-jar "$(basename "$JAR")" \
       --main-class com.hnscrcpy.Launcher \
       --java-options "-Xmx1G" \
+      "${ICON_ARG[@]}" \
       --dest target/dist
   fi
 fi

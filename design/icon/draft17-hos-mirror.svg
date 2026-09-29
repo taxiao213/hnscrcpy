@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- 变体 17：HarmonyOS 规范——镜像反射主题（draft12 的规范重铸：渐变主体+软投影+斜高光） -->
+  <defs>
+    <linearGradient id="bg17" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5BBCFF"/>
+      <stop offset="1" stop-color="#2160E8"/>
+    </linearGradient>
+    <linearGradient id="gl17" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#D8EBFF"/>
+    </linearGradient>
+    <filter id="sh17" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#0A2E80" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="110" fill="url(#bg17)"/>
+  <path d="M 0 0 L 512 0 L 0 400 Z" fill="#FFFFFF" opacity="0.10"/>
+  <!-- 水面线 -->
+  <line x1="72" y1="280" x2="440" y2="280" stroke="#FFFFFF" stroke-width="8" opacity="0.9" stroke-linecap="round"/>
+  <!-- 水面上的屏 -->
+  <g filter="url(#sh17)">
+    <rect x="136" y="132" width="240" height="136" rx="22" fill="url(#gl17)"/>
+  </g>
+  <rect x="154" y="149" width="204" height="102" rx="12" fill="#2E7BF0" opacity="0.55"/>
+  <circle cx="196" cy="200" r="13" fill="#FFFFFF"/>
+  <polygon points="224,182 268,200 224,218" fill="#FFFFFF" opacity="0.95"/>
+  <!-- 水下倒影（半透明，无投影） -->
+  <g opacity="0.30" transform="translate(0,572) scale(1,-1)">
+    <rect x="136" y="132" width="240" height="136" rx="22" fill="#FFFFFF"/>
+    <rect x="154" y="149" width="204" height="102" rx="12" fill="#2E7BF0" opacity="0.55"/>
+  </g>
+  <!-- 涟漪 -->
+  <g stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" opacity="0.4">
+    <line x1="110" y1="342" x2="196" y2="342"/>
+    <line x1="316" y1="376" x2="408" y2="376"/>
+  </g>
+</svg>

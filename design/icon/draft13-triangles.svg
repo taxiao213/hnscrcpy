@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- 变体 13：三角生长——小实心三角（手机内容）放大为大三角（大屏），几何化表达"投屏放大" -->
+  <defs>
+    <linearGradient id="bg13" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#49B8FF"/>
+      <stop offset="1" stop-color="#1B54D8"/>
+    </linearGradient>
+    <filter id="sh13" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#06205E" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="104" fill="url(#bg13)"/>
+  <!-- 大三角（描边圆角感用大圆角 path 近似） -->
+  <g filter="url(#sh13)">
+    <path d="M 172 128
+             Q 180 114 196 122
+             L 396 236
+             Q 410 246 396 256
+             L 196 370
+             Q 180 378 172 364
+             Z"
+          fill="none" stroke="#FFFFFF" stroke-width="24" stroke-linejoin="round" opacity="0.95"/>
+  </g>
+  <!-- 小实心三角（与光束相连） -->
+  <path d="M 128 226 L 196 256 L 128 286 Q 118 290 118 276 L 118 236 Q 118 222 128 226 Z"
+        fill="#FFFFFF" filter="url(#sh13)"/>
+  <!-- 连接光点 -->
+  <circle cx="150" cy="200" r="6" fill="#FFFFFF" opacity="0.7"/>
+  <circle cx="166" cy="184" r="4" fill="#FFFFFF" opacity="0.45"/>
+</svg>

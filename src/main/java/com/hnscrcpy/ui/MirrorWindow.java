@@ -103,6 +103,8 @@ public final class MirrorWindow {
 
         Scene scene = new Scene(root, 520, 920);
         scene.getStylesheets().add(toolbarStylesheetUrl());
+        stage.getIcons().add(new javafx.scene.image.Image(
+                getClass().getResourceAsStream("/icon.png")));
         stage.setTitle("hnscrcpy — " + device.displayName());
         stage.setMinWidth(360);
         stage.setMinHeight(560);

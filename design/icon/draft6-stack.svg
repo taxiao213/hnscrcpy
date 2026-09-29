@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- 变体 6：手机斜叠在显示器上，前后层次 -->
+  <defs>
+    <linearGradient id="bg6" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#45B6FF"/>
+      <stop offset="1" stop-color="#1A56DB"/>
+    </linearGradient>
+    <linearGradient id="scr6" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5CC0FF"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="104" fill="url(#bg6)"/>
+  <!-- 显示器（后层） -->
+  <rect x="150" y="120" width="280" height="196" rx="24" fill="#FFFFFF"/>
+  <rect x="170" y="140" width="240" height="156" rx="12" fill="url(#scr6)"/>
+  <rect x="266" y="316" width="40" height="34" fill="#FFFFFF"/>
+  <rect x="222" y="346" width="128" height="18" rx="9" fill="#FFFFFF"/>
+  <!-- 手机（前层，左下叠放，带投影感描边） -->
+  <g>
+    <rect x="96" y="196" width="130" height="224" rx="28" fill="#FFFFFF" stroke="#1A56DB" stroke-width="0"/>
+    <rect x="116" y="226" width="90" height="150" rx="12" fill="url(#scr6)"/>
+    <rect x="146" y="392" width="30" height="8" rx="4" fill="#2563EB" opacity="0.85"/>
+  </g>
+  <!-- 连接光点：手机→屏幕 -->
+  <g fill="#FFFFFF" opacity="0.95">
+    <circle cx="248" cy="270" r="7"/>
+    <circle cx="272" cy="252" r="9"/>
+    <circle cx="300" cy="230" r="12"/>
+  </g>
+</svg>

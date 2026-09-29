@@ -18,6 +18,8 @@ Copy-Item $JAR target/libs/
 
 Remove-Item -Recurse -Force target/dist -ErrorAction SilentlyContinue
 
+$ICON = "design/icon/hnscrcpy.ico"
+
 # 1) app-image：免安装直接运行 target/dist/hnscrcpy/hnscrcpy.exe
 jpackage `
   --type app-image `
@@ -27,6 +29,7 @@ jpackage `
   --main-jar (Split-Path $JAR -Leaf) `
   --main-class com.hnscrcpy.Launcher `
   --java-options "-Xmx1G" `
+  --icon $ICON `
   --dest target/dist
 
 # 2) 安装包（仅 INSTALLER=1）
@@ -41,6 +44,7 @@ if ($env:INSTALLER -eq "1") {
     --java-options "-Xmx1G" `
     --win-menu `
     --win-shortcut `
+    --icon $ICON `
     --dest target/dist
 }
 
