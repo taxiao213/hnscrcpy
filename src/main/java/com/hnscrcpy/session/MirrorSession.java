@@ -4,6 +4,8 @@ import com.hnscrcpy.control.CoordinateMapper;
 import com.hnscrcpy.control.DeviceController;
 import com.hnscrcpy.decode.DecoderPump;
 import com.hnscrcpy.decode.StreamStalledException;
+import com.hnscrcpy.diag.DiagnosticEvent.Type;
+import com.hnscrcpy.diag.DiagnosticRegistry;
 import com.hnscrcpy.device.HdcClient;
 import com.hnscrcpy.device.HdcLocator;
 import com.hnscrcpy.device.HosScrcpyLocator;
@@ -65,8 +67,9 @@ public final class MirrorSession implements AutoCloseable {
     private final HosScrcpyStream stream;
     private final DeviceController controller;
     private final CoordinateMapper mapper;
+    private final String serial;
     private final ExecutorService controlExecutor;
-    private final DecoderPump pump = new DecoderPump();
+    private final DecoderPump pump;
     private final FrameRenderer renderer = new FrameRenderer();
     private final RenderScheduler renderScheduler;
     private final Consumer<String> statusListener;
@@ -83,6 +86,7 @@ public final class MirrorSession implements AutoCloseable {
 
     public MirrorSession(String sn, VideoConfig config, Consumer<String> statusListener) {
         this.statusListener = statusListener;
+        this.serial = sn;
         Path jar = HosScrcpyLocator.locate()
                 .orElseThrow(() -> new SessionException(HosScrcpyLocator.guidance()));
         Path hdcPath = HdcLocator.locate();
@@ -97,6 +101,8 @@ public final class MirrorSession implements AutoCloseable {
             t.setDaemon(true);
             return t;
         });
+        DiagnosticRegistry.record(serial, Type.SESSION_STARTED, null);
+        this.pump = new DecoderPump(sn);
         this.renderScheduler = new RenderScheduler(pump, renderer);
         this.reconnectScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "stream-reconnect");
@@ -217,6 +223,9 @@ public final class MirrorSession implements AutoCloseable {
 
     /** 流异常/结束（gRPC 线程）：进入 ERROR 并排队指数退避重连；并发失败合并为一次重连。 */
     private void onStreamFailure(Throwable t) {
+        if (serial != null) {
+            org.slf4j.MDC.put("serial", serial);
+        }
         if (state != State.STREAMING && state != State.ERROR) {
             return;
         }
@@ -231,6 +240,9 @@ public final class MirrorSession implements AutoCloseable {
                 : SLOW_RETRY_MS;
         status("连接中断，" + (delay / 1000) + "s 后重连（第 " + attempt + " 次）…");
         log.info("stream failure, reconnect attempt {} in {}ms: {}", attempt, delay, t.toString());
+        DiagnosticRegistry.record(serial, Type.STREAM_ERROR, t.toString());
+        DiagnosticRegistry.record(serial, Type.RECONNECT_SCHEDULED,
+                "第 " + attempt + " 次重连，" + delay + "ms 后");
         reconnectScheduler.schedule(() -> {
             reconnectPending.set(false);
             reconnect();
@@ -251,6 +263,7 @@ public final class MirrorSession implements AutoCloseable {
             status("投屏中");
             startWatchdog();
             log.info("stream reconnected");
+            DiagnosticRegistry.record(serial, Type.RECONNECTED, null);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (RuntimeException e) {
@@ -277,6 +290,8 @@ public final class MirrorSession implements AutoCloseable {
         if (decoded == watchdogLastDecoded.get()) {
             log.warn("no new frame within {}ms despite IDR request, stream stalled",
                     WATCHDOG_INTERVAL_MS);
+            DiagnosticRegistry.record(serial, Type.WATCHDOG_STALL,
+                    WATCHDOG_INTERVAL_MS + "ms 无新帧（请求 IDR 后）");
             onStreamFailure(new StreamStalledException());
             return;
         }
@@ -295,6 +310,7 @@ public final class MirrorSession implements AutoCloseable {
             return;
         }
         state = State.CLOSED;
+        DiagnosticRegistry.record(serial, Type.SESSION_CLOSED, null);
         renderScheduler.stop();
         if (watchdogTask != null) {
             watchdogTask.cancel(false);

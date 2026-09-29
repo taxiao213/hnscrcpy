@@ -30,7 +30,7 @@ import java.util.Map;
 public class App extends Application {
 
     private static final Logger log = LoggerFactory.getLogger(App.class);
-    public static final String VERSION = "1.0.0";
+    public static final String VERSION = "1.0.1";
     private static CliOptions cliOptions = CliOptions.defaults();
 
     private DeviceMonitor monitor;
@@ -74,7 +74,9 @@ public class App extends Application {
     private void onDevicesChanged(List<DeviceInfo> devices) {
         javafx.application.Platform.runLater(() -> {
             mainView.setDevices(devices);
-            String want = cliOptions.serial() != null ? cliOptions.serial() : config.lastSerial();
+            // 仅当 CLI 显式指定 --serial 时自动投屏；普通使用一律由用户双击设备发起，
+            // 避免打开 app 就自动连上上次的设备
+            String want = cliOptions.serial();
             if (!autoConnectDone && want != null && !want.isEmpty()) {
                 devices.stream().filter(d -> d.serial().equals(want)).findFirst()
                         .ifPresent(d -> {

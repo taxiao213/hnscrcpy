@@ -1,5 +1,7 @@
 package com.hnscrcpy.decode;
 
+import com.hnscrcpy.diag.DiagnosticRegistry;
+import com.hnscrcpy.diag.DiagnosticEvent.Type;
 import com.hnscrcpy.stream.FrameSink;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +27,9 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(DecoderPump.class);
     private static final int QUEUE_CAPACITY = 8;
+
+    /** 所属设备序列号：用于日志 MDC 标记与诊断打点；独立解码场景（测试）可为 null。 */
+    private final String serial;
 
     /** 有界丢最旧队列逻辑；包可见静态工厂便于测试。 */
     static <T> boolean offerDropOldest(Queue<T> queue, T item, int capacity) {
@@ -55,6 +60,14 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
      */
     private volatile int[] outputSizeHint;
 
+    public DecoderPump() {
+        this(null);
+    }
+
+    public DecoderPump(String serial) {
+        this.serial = serial;
+    }
+
     /** 流异常/结束回调（gRPC 线程调用）；由会话层接管重连。 */
     public void setErrorHandler(Consumer<Throwable> handler) {
         this.errorHandler = handler != null ? handler : t -> { };
@@ -83,11 +96,13 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
 
     @Override
     public void onStreamReady() {
+        markSerial();
         log.info("stream ready");
     }
 
     @Override
     public void onH264Frame(byte[] data) {
+        markSerial();
         if (H264Decoder.isParameterSets(data)) {
             paramSets = data;
         }
@@ -103,20 +118,32 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
 
     @Override
     public void onStreamError(Throwable t) {
+        markSerial();
         log.warn("stream error: {}", t.toString());
         errorHandler.accept(t);
     }
 
     @Override
     public void onStreamEnded() {
+        markSerial();
         log.info("stream ended");
         stop();
         errorHandler.accept(new StreamEndedException());
     }
 
+    /** gRPC 回调线程打上设备标记（线程可能被多会话复用，每次进入都覆盖）。 */
+    private void markSerial() {
+        if (serial != null) {
+            org.slf4j.MDC.put("serial", serial);
+        }
+    }
+
     // ---- 泵线程 ----
 
     private void pumpLoop() {
+        if (serial != null) {
+            org.slf4j.MDC.put("serial", serial);
+        }
         while (running) {
             byte[] chunk = takeChunk();
             if (chunk == null) {
@@ -138,6 +165,9 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
                 if (!java.util.Arrays.equals(chunk, decoderParams)) {
                     log.info("param sets changed ({} -> {} bytes), recreating decoder",
                             decoderParams == null ? 0 : decoderParams.length, chunk.length);
+                    DiagnosticRegistry.record(serial, Type.PARAM_SETS_CHANGED,
+                            "参数集变化（" + (decoderParams == null ? 0 : decoderParams.length)
+                                    + " -> " + chunk.length + " 字节），重建解码器");
                     closeDecoder();
                     createDecoder(chunk);
                 }
@@ -156,6 +186,8 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
         decoder = new H264Decoder(params);
         decoderParams = params;
         log.info("decoder created with param sets ({} bytes)", params.length);
+        DiagnosticRegistry.record(serial, Type.DECODER_CREATED,
+                "解码器创建（参数集 " + params.length + " 字节）");
     }
 
     private VideoFrame tryDecode(byte[] chunk) {
@@ -166,6 +198,7 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
                     : decoder.decode(chunk);
         } catch (RuntimeException e) {
             log.warn("decode failed: {}", e.toString());
+            DiagnosticRegistry.record(serial, Type.DECODE_FAILURE, e.toString());
             return null;
         }
     }

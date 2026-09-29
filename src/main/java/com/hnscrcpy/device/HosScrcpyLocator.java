@@ -26,7 +26,7 @@ public final class HosScrcpyLocator {
 
     private static final Logger log = LoggerFactory.getLogger(HosScrcpyLocator.class);
     /** 内置 jar 版本；升级时同步替换 src/main/resources/lib/ 下的文件。 */
-    static final String BUNDLED_JAR = "hosScrcpy-1.0.15-beta.jar";
+    static final String BUNDLED_JAR = "hosScrcpy-1.0.20-beta.jar";
 
     private HosScrcpyLocator() {
     }

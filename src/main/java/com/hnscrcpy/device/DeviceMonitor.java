@@ -74,6 +74,18 @@ public final class DeviceMonitor {
         if (serials.equals(lastSerials)) {
             return;
         }
+        // 设备上下线记入诊断（下线 = 上次有、这次没有）
+        for (String sn : lastSerials) {
+            if (!serials.contains(sn)) {
+                com.hnscrcpy.diag.DiagnosticRegistry.deviceOffline(sn);
+            }
+        }
+        for (String sn : serials) {
+            if (!lastSerials.contains(sn)) {
+                DeviceInfo info = describeCached(sn); // 缓存详情，让在线事件带上设备名
+                com.hnscrcpy.diag.DiagnosticRegistry.deviceOnline(sn, info.model());
+            }
+        }
         lastSerials = serials;
         List<DeviceInfo> devices = serials.stream().map(this::describeCached).toList();
         listener.onDevicesChanged(devices);
