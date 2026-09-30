@@ -13,8 +13,9 @@
       <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#0A2E80" flood-opacity="0.35"/>
     </filter>
   </defs>
+  <clipPath id="rr18"><rect width="512" height="512" rx="110"/></clipPath>
   <rect width="512" height="512" rx="110" fill="url(#bg18)"/>
-  <path d="M 0 0 L 512 0 L 0 400 Z" fill="#FFFFFF" opacity="0.10"/>
+  <path d="M 0 0 L 512 0 L 0 400 Z" fill="#FFFFFF" opacity="0.10" clip-path="url(#rr18)"/>
   <!-- 大屏（渐变主体） -->
   <g filter="url(#sh18)">
     <rect x="96" y="122" width="320" height="236" rx="30" fill="none" stroke="url(#gl18)" stroke-width="26"/>
