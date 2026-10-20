@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.0.2（2026-10-20）
+
+### 新增
+- 电脑键盘输入：投屏窗口聚焦后可直接打字（英文/数字实时注入），字符攒批经 `uitest uiInput inputText` 注入设备输入框；Enter/退格/Tab/方向键走 uinput
+- 中文输入：菜单「输入文本…」（⌘I）呼出文本框，完整支持中文输入法组词/选字与 ⌘V 粘贴，回车整段注入（投屏画面控件的 IME 直打受 JavaFX 非文本控件管线限制，改用对话框方案）
+- 剪贴板粘贴：工具条「粘贴到输入框」按钮 + ⌘V（Win/Linux Ctrl+V），电脑剪贴板文本整段注入设备最后点击的输入框
+- 新增 `control/TextInjector`（攒批注入）、`control/KeyInputForwarder`（键盘转发，含 IME 组词压住）；诊断日志新增 TEXT_INJECT_FAILED 事件
+- ⚠️ 注入通道与 ESCAPE/方向键键值待真机标定：连接设备后运行 `scripts/spike-text-inject.sh`
+
+### 兼容性
+- 设备固件启用 XPM 代码签名管控后，hosScrcpy 旧变体（含模拟器误判路径）无法加载导致投屏零帧：排查结论与 6.8-20260801 变体解法记录于 `docs/HOS_SCRCPY_PROTOCOL.md` §10
+
 ## v1.0.1（2026-09-29）
 
 ### 修复

@@ -126,10 +126,34 @@ public final class MirrorWindow {
 
         if (controlEnabled) {
             // 挂在 ImageView 上：事件坐标即画面坐标，映射无 padding/居中偏移
-            new InputForwarder(session.controller(), session.mapper(),
+            InputForwarder forwarder = new InputForwarder(session.controller(), session.mapper(),
                     () -> view.getLayoutBounds().getWidth(),
                     () -> view.getLayoutBounds().getHeight(),
-                    session.controlExecutor()).attach(view);
+                    session.controlExecutor());
+            forwarder.attach(view);
+            // 触摸点即输入焦点锚点：键盘打字 / ⌘V 粘贴注入到该位置
+            forwarder.setTouchListener(session.textInjector()::setAnchor);
+            // 键盘输入：可打印字符攒批注入，控制键走 uinput
+            new com.hnscrcpy.control.KeyInputForwarder(session.controller(),
+                    session.textInjector(), session.controlExecutor()).attach(scene);
+            // IME（中文输入法）需要焦点节点实现 InputMethodRequests 才会向场景提交事件
+            view.setFocusTraversable(true);
+            view.setInputMethodRequests(new javafx.scene.input.InputMethodRequests() {
+                public javafx.geometry.Point2D getTextLocation(int offset) {
+                    return new javafx.geometry.Point2D(0, 0);
+                }
+                public int getLocationOffset(int x, int y) {
+                    return 0;
+                }
+                public void cancelLatestCommittedText() {
+                }
+                public String getSelectedText() {
+                    return null;
+                }
+            });
+            // IME 需要焦点：必须用事件过滤器，不能用 setOnMousePressed（会覆盖 InputForwarder 的按下处理器，
+            // 导致触摸注入与输入锚点全部失效——v1.0.2 回归）
+            view.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, e -> view.requestFocus());
             // 诊断：scene 级过滤器观察事件实际到达的目标节点
             scene.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, e ->
                     log.debug("scene press target={} at ({},{})",
@@ -153,6 +177,8 @@ public final class MirrorWindow {
                 () -> run(() -> session.controller().keyBack()),
                 () -> run(() -> session.controller().keyHome()),
                 () -> run(() -> session.controller().keyRecentTasks()),
+                this::onPaste,
+                this::onTextInput,
                 this::onToggleTop,
                 this::onAbout);
     }
@@ -191,6 +217,66 @@ public final class MirrorWindow {
                 stage.setHeight(stage.getHeight() - delta);
             }
         });
+    }
+
+    private void onPaste() {
+        if (session == null) {
+            return;
+        }
+        var cb = javafx.scene.input.Clipboard.getSystemClipboard();
+        String text = cb == null ? null : cb.getString();
+        if (text == null || text.isEmpty()) {
+            statusBar.setText("剪贴板没有可粘贴的文本");
+            return;
+        }
+        session.textInjector().injectNow(text);
+        statusBar.setText("已发送 " + text.length() + " 个字符到设备输入框（最后点击处）");
+    }
+
+    /** 中文/长文本输入对话框：真实 TextArea 完整支持输入法与粘贴，回车整段注入。 */
+    private void onTextInput() {
+        if (session == null) {
+            return;
+        }
+        javafx.stage.Stage dialog = new javafx.stage.Stage();
+        dialog.initOwner(stage);
+        dialog.setTitle("输入文本到手机");
+
+        var area = new javafx.scene.control.TextArea();
+        area.setPromptText("输入文本（完整支持中文输入法 / ⌘V 粘贴）\n回车发送 · Shift+回车换行");
+        area.setWrapText(true);
+        area.setPrefRowCount(4);
+
+        var hint = new Label("发送后文本将注入手机当前输入框（最后点击处）");
+        hint.setTextFill(STATUS_FG);
+        hint.setPadding(new Insets(4, 0, 0, 0));
+
+        var send = new javafx.scene.control.Button("发送到手机");
+        send.setDefaultButton(true);
+        send.setOnAction(e -> {
+            String text = area.getText();
+            if (text.isEmpty()) {
+                return;
+            }
+            session.textInjector().injectNow(text);
+            statusBar.setText("已发送 " + text.length() + " 个字符到设备输入框（最后点击处）");
+            area.clear();
+            area.requestFocus();
+        });
+        area.setOnKeyPressed(e -> {
+            if (e.getCode() == javafx.scene.input.KeyCode.ENTER
+                    && !e.isShiftDown()) {
+                send.fire();
+                e.consume();
+            }
+        });
+
+        var root = new javafx.scene.layout.VBox(8, area, send, hint);
+        root.setPadding(new Insets(12));
+        var scene = new javafx.scene.Scene(root, 420, 220);
+        dialog.setScene(scene);
+        dialog.show();
+        area.requestFocus();
     }
 
     private void onToggleTop() {

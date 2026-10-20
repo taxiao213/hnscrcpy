@@ -66,6 +66,7 @@ public final class MirrorSession implements AutoCloseable {
     private final HosScrcpyBridge bridge;
     private final HosScrcpyStream stream;
     private final DeviceController controller;
+    private final com.hnscrcpy.control.TextInjector textInjector;
     private final CoordinateMapper mapper;
     private final String serial;
     private final ExecutorService controlExecutor;
@@ -94,6 +95,7 @@ public final class MirrorSession implements AutoCloseable {
         this.stream = new HosScrcpyStream(bridge, sn);
         HdcClient hdc = new HdcClient(hdcPath);
         this.controller = new DeviceController(bridge, hdc, sn);
+        this.textInjector = new com.hnscrcpy.control.TextInjector(hdc, sn);
         int[] screen = hdc.screenSize(sn).orElse(FALLBACK_SCREEN);
         this.mapper = new CoordinateMapper(screen[0], screen[1]);
         this.controlExecutor = Executors.newSingleThreadExecutor(r -> {
@@ -188,6 +190,11 @@ public final class MirrorSession implements AutoCloseable {
 
     public DeviceController controller() {
         return controller;
+    }
+
+    /** 文本注入器（键盘输入 / 剪贴板粘贴共用）。 */
+    public com.hnscrcpy.control.TextInjector textInjector() {
+        return textInjector;
     }
 
     public CoordinateMapper mapper() {
@@ -318,6 +325,7 @@ public final class MirrorSession implements AutoCloseable {
         reconnectScheduler.shutdownNow();
         stream.stop();
         pump.close();
+        textInjector.close();
         controlExecutor.shutdownNow();
         bridge.close();
         status("已断开");

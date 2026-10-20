@@ -32,6 +32,17 @@ public final class DeviceController {
     private static final int KEY_VOLUME_UP = 16;
     private static final int KEY_VOLUME_DOWN = 17;
 
+    // OpenHarmony KeyCode 文档值：TAB=2049 / ENTER=2054 / DEL(退格)=2055；
+    // ESCAPE 与方向键（2071-2074）未真机标定，spike 验证后修正（docs/HOS_SCRCPY_PROTOCOL.md §10）
+    public static final int KEY_TAB = 2049;
+    public static final int KEY_ENTER = 2054;
+    public static final int KEY_BACKSPACE = 2055;
+    static final int KEY_ESCAPE = 2070;
+    static final int KEY_DPAD_UP = 2071;
+    static final int KEY_DPAD_DOWN = 2072;
+    static final int KEY_DPAD_LEFT = 2073;
+    static final int KEY_DPAD_RIGHT = 2074;
+
     private final HosScrcpyBridge bridge;
     private final HdcClient hdc;
     private final String sn;
@@ -100,6 +111,40 @@ public final class DeviceController {
 
     public void keyVolumeDown() {
         pressKey(KEY_VOLUME_DOWN);
+    }
+
+    // ---- 文本编辑特殊键（键盘输入支持，键值待真机标定） ----
+
+    public void keyEnter() {
+        pressKey(KEY_ENTER);
+    }
+
+    public void keyBackspace() {
+        pressKey(KEY_BACKSPACE);
+    }
+
+    public void keyTab() {
+        pressKey(KEY_TAB);
+    }
+
+    public void keyEscape() {
+        pressKey(KEY_ESCAPE);
+    }
+
+    public void keyDpadUp() {
+        pressKey(KEY_DPAD_UP);
+    }
+
+    public void keyDpadDown() {
+        pressKey(KEY_DPAD_DOWN);
+    }
+
+    public void keyDpadLeft() {
+        pressKey(KEY_DPAD_LEFT);
+    }
+
+    public void keyDpadRight() {
+        pressKey(KEY_DPAD_RIGHT);
     }
 
     /** 横屏（设备旋转 90°）。 */

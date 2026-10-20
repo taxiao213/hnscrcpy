@@ -34,7 +34,8 @@ public final class SideToolbar extends VBox {
     public record Actions(Runnable onClose, Runnable onScreenshot, Runnable onRotate,
                           Runnable onPower, Runnable onVolumeUp, Runnable onVolumeDown,
                           Runnable onBack, Runnable onHome, Runnable onRecent,
-                          Runnable onToggleTop, Runnable onAbout) {
+                          Runnable onPaste, Runnable onTextInput, Runnable onToggleTop,
+                          Runnable onAbout) {
     }
 
     /** 菜单项：图标 + 文案 + 快捷键（可空）。MirrorWindow 用 shortcut 注册加速器。 */
@@ -76,9 +77,11 @@ public final class SideToolbar extends VBox {
         home.setOnAction(e -> actions.onHome().run());
         Button recent = iconButton(ToolIcons.navRecent(ICON), "最近任务");
         recent.setOnAction(e -> actions.onRecent().run());
+        Button paste = iconButton(ToolIcons.svg(ToolIcons.PASTE, ICON), "粘贴到输入框");
+        paste.setOnAction(e -> actions.onPaste().run());
 
         getChildren().addAll(close, menuBtn, hSep(), shot, rotate, power,
-                volUp, volDown, hSep(), back, home, recent);
+                volUp, volDown, paste, hSep(), back, home, recent);
     }
 
     /** 菜单项列表（与下拉菜单、场景加速器共用同一定义）。 */
@@ -100,6 +103,10 @@ public final class SideToolbar extends VBox {
                 sc(KeyCode.H, KeyCombination.SHIFT_DOWN), null, actions.onHome()));
         entries.add(new MenuEntry("最近任务", ToolIcons.navRecent(MENU_ICON),
                 sc(KeyCode.O, KeyCombination.SHIFT_DOWN), null, actions.onRecent()));
+        entries.add(new MenuEntry("粘贴到输入框", ToolIcons.svg(ToolIcons.PASTE, MENU_ICON),
+                sc(KeyCode.V), null, actions.onPaste()));
+        entries.add(new MenuEntry("输入文本…", ToolIcons.svg(ToolIcons.KEYBOARD, MENU_ICON),
+                sc(KeyCode.I), null, actions.onTextInput()));
         entries.add(new MenuEntry("电源", ToolIcons.svg(ToolIcons.POWER, MENU_ICON),
                 null, null, actions.onPower()));
         entries.add(new MenuEntry("关于 hnscrcpy", ToolIcons.svg(ToolIcons.INFO, MENU_ICON),

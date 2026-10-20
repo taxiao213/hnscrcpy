@@ -43,6 +43,7 @@ public record DiagnosticEvent(Instant time, Type type, String detail) {
         DECODE_FAILURE(Category.DECODE, true),
         DEVICE_ONLINE(Category.DEVICE, false),
         DEVICE_OFFLINE(Category.DEVICE, false),
+        TEXT_INJECT_FAILED(Category.DEVICE, true),
         SESSION_STARTED(Category.LIFECYCLE, false),
         SESSION_CLOSED(Category.LIFECYCLE, false);
 

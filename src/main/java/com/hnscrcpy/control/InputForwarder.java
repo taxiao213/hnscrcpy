@@ -36,6 +36,13 @@ public final class InputForwarder {
     private boolean pressing;
     private MouseButton pressingButton;
     private long lastMoveMs;
+    /** 触摸监听（TextInjector 回填输入焦点锚点用）；可空。 */
+    private java.util.function.BiConsumer<Integer, Integer> touchListener;
+
+    /** 注册触摸按下监听（设备坐标），用于键盘/粘贴注入的焦点锚点。 */
+    public void setTouchListener(java.util.function.BiConsumer<Integer, Integer> listener) {
+        this.touchListener = listener;
+    }
 
     public InputForwarder(DeviceController controller, CoordinateMapper mapper,
                           DoubleSupplier viewWidth, DoubleSupplier viewHeight,
@@ -62,6 +69,9 @@ public final class InputForwarder {
         pressing = true;
         pressingButton = e.getButton();
         int[] p = map(e);
+        if (touchListener != null) {
+            touchListener.accept(p[0], p[1]);
+        }
         log.debug("mouse {} pressed scene=({},{}) -> device=({},{})",
                 e.getButton(), e.getX(), e.getY(), p[0], p[1]);
         submit(p, () -> {

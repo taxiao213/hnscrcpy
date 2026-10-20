@@ -173,3 +173,22 @@ imageScaleSize / extensionName / ip / hdcPort / hdcPath`。
   （`src/main/resources/lib/`，运行时提取到 `~/.hnscrcpy/lib/`），hdc 二进制同样内置。
   此为已知合规妥协，处理方式见 `THIRD-PARTY-NOTICES.md` 第一节：明确版权与授权归属华为、
   不在 Apache-2.0 授权范围、仅供个人学习研究、禁止商用、权利人可要求移除。
+
+## 10. 文本注入通道（键盘输入 / 粘贴，2026-10-20 新增）
+
+hosScrcpy jar（1.0.20-beta）无键盘/文本/剪贴板 API（`HosRemoteDevice` 全方法已反编译确认），
+文本注入走 **hdc shell + 设备自带 uitest CLI**：
+
+```bash
+uitest uiInput inputText <x> <y> '<text>'   # 经设备 IME 通道注入，支持中文
+```
+
+- 坐标 = 「最后触摸点」（客户端在触摸按下时记录输入焦点锚点，见 `InputForwarder.setTouchListener`）
+- 文本包单引号，内部 `'` 按 shell 规则转义为 `'\''`；换行拆段、段间 `uinput -K -d 2054 -u 2054`（Enter）
+- 控制键走 uinput：TAB=2049 / ENTER=2054 / DEL(退格)=2055（OpenHarmony KeyCode 文档值）；
+  **ESCAPE=2070 与方向键 2071-2074 未真机标定**，连真机后跑 `scripts/spike-text-inject.sh` 修正
+- ⚠️ 待真机验证（`scripts/spike-text-inject.sh`）：① `uitest uiInput inputText` 子命令在本机
+  uitest 6.0.2.3 上是否存在；② 注入时是否重点击坐标（可能移动光标）；③ 中文注入实际效果；
+  ④ 若通道不可用，退路是 agent JSON-RPC 探测（B socket 发 hypiumApiHelper 其他 api 名）
+- 「粘贴」= 同通道整段注入（设备无公开剪贴板写入命令，pasteboard 服务只能 dump 不能 set）；
+  真剪贴板同步需华为 Pasteboard NDK 原生工具，列为后续迭代

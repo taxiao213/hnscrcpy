@@ -45,7 +45,7 @@ class SideToolbarTest {
         Runnable noop = () -> {
         };
         return new SideToolbar.Actions(noop, noop, noop, noop, noop, noop,
-                noop, noop, noop, noop, noop);
+                noop, noop, noop, noop, noop, noop, noop);
     }
 
     private static <T> T onFx(java.util.concurrent.Callable<T> call) throws Exception {
@@ -69,14 +69,14 @@ class SideToolbarTest {
     }
 
     @Test
-    @DisplayName("toolbar builds 12 icon buttons and 2 separators")
+    @DisplayName("toolbar builds 13 icon buttons and 2 separators")
     void toolbar_hasExpectedChildren() throws Exception {
         var toolbar = onFx(() -> new SideToolbar(noopActions()));
         long buttons = toolbar.getChildren().stream()
                 .filter(c -> c instanceof javafx.scene.control.Button).count();
         long seps = toolbar.getChildren().stream()
                 .filter(c -> c instanceof javafx.scene.control.Separator).count();
-        assertThat(buttons).isEqualTo(10);
+        assertThat(buttons).isEqualTo(11);
         assertThat(seps).isEqualTo(2);
     }
 
@@ -84,7 +84,7 @@ class SideToolbarTest {
     @DisplayName("menu entries expose shortcuts consistent with display text")
     void menuEntries_shortcutsHaveDisplayText() throws Exception {
         var entries = onFx(() -> new SideToolbar(noopActions()).menuEntries());
-        assertThat(entries).hasSize(10);
+        assertThat(entries).hasSize(12);
         for (var e : entries) {
             if (e.shortcut() != null) {
                 assertThat(e.shortcutText()).isNotBlank();
@@ -105,7 +105,7 @@ class SideToolbarTest {
         Runnable noop = () -> {
         };
         var actions = new SideToolbar.Actions(noop, noop, noop, noop, noop, noop,
-                noop, noop, noop, () -> fired.set(true), noop);
+                noop, noop, noop, noop, noop, () -> fired.set(true), noop);
         var entries = onFx(() -> new SideToolbar(actions).menuEntries());
         var top = entries.stream().filter(e -> e.label().equals("窗口置顶")).findFirst().orElseThrow();
         top.action().run();
