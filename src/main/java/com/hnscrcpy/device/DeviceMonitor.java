@@ -60,6 +60,13 @@ public final class DeviceMonitor {
         }
     }
 
+    /** 立即触发一轮轮询（无线连接/断开后马上刷新列表，不等下个 2s 周期）。 */
+    public synchronized void refreshNow() {
+        if (scheduler != null) {
+            scheduler.schedule(this::pollSafely, 0, TimeUnit.MILLISECONDS);
+        }
+    }
+
     private void pollSafely() {
         try {
             poll();

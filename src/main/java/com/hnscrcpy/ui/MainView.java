@@ -104,6 +104,20 @@ public class MainView {
             .connect-btn:hover { -fx-background-color: #45454d; }
             .connect-btn:pressed { -fx-background-color: #1e1e22; }
             .connect-btn:disabled { -fx-background-color: #a9a9b0; }
+            /* 断开按钮：白底描边次级样式，与深色主按钮区分主次 */
+            .disconnect-btn {
+                -fx-background-color: #ffffff;
+                -fx-text-fill: #2c2c31;
+                -fx-border-color: #d5d5dc;
+                -fx-border-width: 1;
+                -fx-border-radius: 8;
+                -fx-background-radius: 8;
+                -fx-padding: 5 14 5 14;
+                -fx-cursor: hand;
+            }
+            .disconnect-btn:hover { -fx-border-color: #2c2c31; }
+            .disconnect-btn:pressed { -fx-background-color: #ececf2; }
+            .disconnect-btn:disabled { -fx-opacity: 0.5; }
             """;
 
     private final BorderPane root = new BorderPane();
@@ -114,13 +128,19 @@ public class MainView {
     private final TextField fpsField = new TextField("60");
     private final TextField wirelessField = new TextField();
     private final Button connectBtn = new Button("连接");
+    private final Button disconnectBtn = new Button("断开");
     private final Consumer<DeviceInfo> onSelect;
     /** 无线连接回调：输入 ip:port，返回 null 表示成功，否则返回错误信息。在后台线程调用。 */
     private final java.util.function.Function<String, String> wirelessConnector;
+    /** 无线断开回调：签名同上（hdc tdisconnect）。 */
+    private final java.util.function.Function<String, String> wirelessDisconnector;
 
-    public MainView(Consumer<DeviceInfo> onSelect, java.util.function.Function<String, String> wirelessConnector) {
+    public MainView(Consumer<DeviceInfo> onSelect,
+                    java.util.function.Function<String, String> wirelessConnector,
+                    java.util.function.Function<String, String> wirelessDisconnector) {
         this.onSelect = onSelect;
         this.wirelessConnector = wirelessConnector;
+        this.wirelessDisconnector = wirelessDisconnector;
         deviceList.getStyleClass().add("device-list");
         root.getStylesheets().add(UiStyles.dataUrl(LIST_CSS));
         deviceList.setCellFactory(lv -> new ListCell<>() {
@@ -181,14 +201,19 @@ public class MainView {
         // header 已有统一的 12px 外边距，这里只留垂直间距，保证与上面两行左对齐
         settings.setPadding(new Insets(8, 0, 8, 0));
 
-        // 无线连接行：码率行下方，输入 IP:端口 一键 hdc tconn
+        // 无线连接行：码率行下方，输入 IP:端口 一键 hdc tconn / tdisconnect
         wirelessField.setPromptText("IP:端口，如 192.168.1.100:10123");
-        wirelessField.setPrefColumnCount(18);
+        // 输入框吃掉剩余宽度但可收缩，保证「连接」「断开」按钮在窄窗口下始终可见
+        wirelessField.setPrefColumnCount(10);
+        wirelessField.setMinWidth(110);
+        HBox.setHgrow(wirelessField, Priority.ALWAYS);
         wirelessField.getStyleClass().add("wireless-field");
         connectBtn.getStyleClass().add("connect-btn");
-        connectBtn.setOnAction(e -> connectWireless());
-        wirelessField.setOnAction(e -> connectWireless());
-        HBox wireless = new HBox(8, new Label("无线连接:"), wirelessField, connectBtn);
+        disconnectBtn.getStyleClass().add("disconnect-btn");
+        connectBtn.setOnAction(e -> wirelessToggle(true));
+        disconnectBtn.setOnAction(e -> wirelessToggle(false));
+        wirelessField.setOnAction(e -> wirelessToggle(true));
+        HBox wireless = new HBox(8, new Label("无线连接:"), wirelessField, connectBtn, disconnectBtn);
         wireless.setAlignment(Pos.CENTER_LEFT);
         VBox.setMargin(wireless, new Insets(0, 0, 8, 0));
 
@@ -251,8 +276,8 @@ public class MainView {
         }
     }
 
-    /** 校验并后台执行 hdc tconn；成功后设备轮询会自动把设备加入列表。 */
-    private void connectWireless() {
+    /** 校验并后台执行无线连接/断开；连接成功后设备轮询会自动把设备加入列表。 */
+    private void wirelessToggle(boolean connect) {
         String addr = wirelessField.getText().trim();
         if (addr.isEmpty()) {
             statusLabel.setText("请输入 IP:端口");
@@ -263,19 +288,23 @@ public class MainView {
             statusLabel.setText(err);
             return;
         }
+        var action = connect ? wirelessConnector : wirelessDisconnector;
         connectBtn.setDisable(true);
-        statusLabel.setText("正在连接 " + addr + " …");
+        disconnectBtn.setDisable(true);
+        statusLabel.setText((connect ? "正在连接 " : "正在断开 ") + addr + " …");
         Thread t = new Thread(() -> {
-            String failure = wirelessConnector.apply(addr);
+            String failure = action.apply(addr);
             javafx.application.Platform.runLater(() -> {
                 connectBtn.setDisable(false);
+                disconnectBtn.setDisable(false);
                 if (failure == null) {
-                    statusLabel.setText("已连接 " + addr + "，设备列表稍后自动刷新");
+                    statusLabel.setText((connect ? "已连接 " : "已断开 ") + addr
+                            + (connect ? "，设备列表稍后自动刷新" : ""));
                 } else {
-                    statusLabel.setText("连接失败: " + failure);
+                    statusLabel.setText((connect ? "连接失败: " : "断开失败: ") + failure);
                 }
             });
-        }, "wireless-connect");
+        }, "wireless-toggle");
         t.setDaemon(true);
         t.start();
     }

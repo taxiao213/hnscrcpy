@@ -115,6 +115,19 @@ public class HdcClient {
         return new TconnResult(r.ok(), message);
     }
 
+    /**
+     * 无线调试断开：hdc tconn &lt;ip:port&gt; -remove。
+     * 实测 hdc 无独立 tdisconnect 子命令（或无效），断开走 tconn -remove。
+     */
+    public TconnResult tdisconnect(String addr) {
+        ProcessRunner.Result r = runner.run(
+                List.of(hdc.toString(), "tconn", addr, "-remove"), 15);
+        String out = r.output().trim();
+        String message = out.isEmpty() ? (r.ok() ? "已断开" : "断开失败") : out;
+        log.info("tconn {} -remove: {}", addr, message);
+        return new TconnResult(r.ok(), message);
+    }
+
     public boolean fport(String sn, int localPort, String remote) {
         ProcessRunner.Result r = runner.run(
                 List.of(hdc.toString(), "-t", sn, "fport", "tcp:" + localPort, remote), 15);

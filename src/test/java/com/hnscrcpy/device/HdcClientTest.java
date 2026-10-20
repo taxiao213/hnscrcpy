@@ -125,6 +125,21 @@ class HdcClientTest {
     }
 
     @Test
+    @DisplayName("tdisconnect runs tconn <addr> -remove")
+    void tdisconnect_buildsCommand() {
+        List<List<String>> captured = new ArrayList<>();
+        HdcClient hdc = new HdcClient(Path.of("/opt/hdc"), (cmd, t) -> {
+            captured.add(cmd);
+            return new ProcessRunner.Result(0, "", "", false, 10);
+        });
+        HdcClient.TconnResult r = hdc.tdisconnect("192.168.1.100:10123");
+        assertThat(r.ok()).isTrue();
+        assertThat(r.message()).isEqualTo("已断开");
+        assertThat(captured.get(0)).containsExactly(
+                "/opt/hdc", "tconn", "192.168.1.100:10123", "-remove");
+    }
+
+    @Test
     @DisplayName("isOnline checks listTargets with retry")
     void isOnline_checksTargets() {
         Scripted runner = new Scripted();

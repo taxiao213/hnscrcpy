@@ -49,7 +49,7 @@ public class App extends Application {
 
         HdcClient hdc = new HdcClient();
         this.hdc = hdc;
-        mainView = new MainView(this::onDeviceSelected, this::connectWireless);
+        mainView = new MainView(this::onDeviceSelected, this::connectWireless, this::disconnectWireless);
         mainView.applyConfig(config.bitRateMbps(), config.fps());
         mainView.setWirelessAddr(config.lastWirelessAddr());
         monitor = new DeviceMonitor(hdc, this::onDevicesChanged);
@@ -101,6 +101,17 @@ public class App extends Application {
         if (r.ok()) {
             config.setLastWirelessAddr(addr);
             config.save();
+            monitor.refreshNow();
+            return null;
+        }
+        return r.message();
+    }
+
+    /** 无线断开回调（MainView 后台线程调用）：执行 hdc tconn <addr> -remove。成功返回 null 并立即刷新列表。 */
+    private String disconnectWireless(String addr) {
+        HdcClient.TconnResult r = hdc.tdisconnect(addr);
+        if (r.ok()) {
+            monitor.refreshNow();
             return null;
         }
         return r.message();
