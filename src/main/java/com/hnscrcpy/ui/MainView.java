@@ -84,6 +84,26 @@ public class MainView {
                 -fx-cursor: hand;
             }
             .diag-badge:pressed { -fx-background-color: #b23527; }
+            /* 无线连接行：圆角输入框 + 深色胶囊按钮，与整体设计语言一致 */
+            .wireless-field {
+                -fx-background-color: #ffffff;
+                -fx-background-radius: 8;
+                -fx-border-color: #d5d5dc;
+                -fx-border-radius: 8;
+                -fx-border-width: 1;
+                -fx-padding: 4 8 4 8;
+            }
+            .wireless-field:focused { -fx-border-color: #2c2c31; }
+            .connect-btn {
+                -fx-background-color: #2c2c31;
+                -fx-text-fill: #f7f7f9;
+                -fx-background-radius: 8;
+                -fx-padding: 5 16 5 16;
+                -fx-cursor: hand;
+            }
+            .connect-btn:hover { -fx-background-color: #45454d; }
+            .connect-btn:pressed { -fx-background-color: #1e1e22; }
+            .connect-btn:disabled { -fx-background-color: #a9a9b0; }
             """;
 
     private final BorderPane root = new BorderPane();
@@ -92,10 +112,15 @@ public class MainView {
     private final Label statusLabel = new Label("正在检测设备…");
     private final TextField bitRateField = new TextField("30");
     private final TextField fpsField = new TextField("60");
+    private final TextField wirelessField = new TextField();
+    private final Button connectBtn = new Button("连接");
     private final Consumer<DeviceInfo> onSelect;
+    /** 无线连接回调：输入 ip:port，返回 null 表示成功，否则返回错误信息。在后台线程调用。 */
+    private final java.util.function.Function<String, String> wirelessConnector;
 
-    public MainView(Consumer<DeviceInfo> onSelect) {
+    public MainView(Consumer<DeviceInfo> onSelect, java.util.function.Function<String, String> wirelessConnector) {
         this.onSelect = onSelect;
+        this.wirelessConnector = wirelessConnector;
         deviceList.getStyleClass().add("device-list");
         root.getStylesheets().add(UiStyles.dataUrl(LIST_CSS));
         deviceList.setCellFactory(lv -> new ListCell<>() {
@@ -155,7 +180,19 @@ public class MainView {
         settings.setAlignment(Pos.CENTER_LEFT);
         // header 已有统一的 12px 外边距，这里只留垂直间距，保证与上面两行左对齐
         settings.setPadding(new Insets(8, 0, 8, 0));
-        VBox header = new VBox(4, new Label("设备列表（双击投屏）"), statusLabel, settings);
+
+        // 无线连接行：码率行下方，输入 IP:端口 一键 hdc tconn
+        wirelessField.setPromptText("IP:端口，如 192.168.1.100:10123");
+        wirelessField.setPrefColumnCount(18);
+        wirelessField.getStyleClass().add("wireless-field");
+        connectBtn.getStyleClass().add("connect-btn");
+        connectBtn.setOnAction(e -> connectWireless());
+        wirelessField.setOnAction(e -> connectWireless());
+        HBox wireless = new HBox(8, new Label("无线连接:"), wirelessField, connectBtn);
+        wireless.setAlignment(Pos.CENTER_LEFT);
+        VBox.setMargin(wireless, new Insets(0, 0, 8, 0));
+
+        VBox header = new VBox(4, new Label("设备列表（双击投屏）"), statusLabel, settings, wireless);
         header.setPadding(new Insets(12));
 
         Button exportBtn = new Button("📤 导出诊断日志");
@@ -205,6 +242,64 @@ public class MainView {
     public void applyConfig(int bitRateMbps, int fps) {
         bitRateField.setText(String.valueOf(bitRateMbps));
         fpsField.setText(String.valueOf(fps));
+    }
+
+    /** 回填上次使用的无线连接地址（来自用户配置）。 */
+    public void setWirelessAddr(String addr) {
+        if (addr != null && !addr.isBlank()) {
+            wirelessField.setText(addr.trim());
+        }
+    }
+
+    /** 校验并后台执行 hdc tconn；成功后设备轮询会自动把设备加入列表。 */
+    private void connectWireless() {
+        String addr = wirelessField.getText().trim();
+        if (addr.isEmpty()) {
+            statusLabel.setText("请输入 IP:端口");
+            return;
+        }
+        String err = validateAddr(addr);
+        if (err != null) {
+            statusLabel.setText(err);
+            return;
+        }
+        connectBtn.setDisable(true);
+        statusLabel.setText("正在连接 " + addr + " …");
+        Thread t = new Thread(() -> {
+            String failure = wirelessConnector.apply(addr);
+            javafx.application.Platform.runLater(() -> {
+                connectBtn.setDisable(false);
+                if (failure == null) {
+                    statusLabel.setText("已连接 " + addr + "，设备列表稍后自动刷新");
+                } else {
+                    statusLabel.setText("连接失败: " + failure);
+                }
+            });
+        }, "wireless-connect");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /** 地址校验：host:port，host 允许 IPv4 / 主机名，端口 1-65535。合法返回 null。 */
+    static String validateAddr(String addr) {
+        int idx = addr.lastIndexOf(':');
+        if (idx <= 0 || idx == addr.length() - 1) {
+            return "格式应为 IP:端口，如 192.168.1.100:10123";
+        }
+        String host = addr.substring(0, idx);
+        String port = addr.substring(idx + 1);
+        if (!host.matches("[A-Za-z0-9.\\-]+")) {
+            return "IP 地址格式不正确: " + host;
+        }
+        try {
+            int p = Integer.parseInt(port);
+            if (p < 1 || p > 65535) {
+                return "端口超出范围 (1-65535): " + port;
+            }
+        } catch (NumberFormatException e) {
+            return "端口格式不正确: " + port;
+        }
+        return null;
     }
 
     // ---- 诊断导出 ----

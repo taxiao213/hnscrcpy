@@ -100,6 +100,21 @@ public class HdcClient {
         return r.output().trim();
     }
 
+    /** 无线调试连接结果：ok 为 hdc 退出码，message 为输出或兜底提示。 */
+    public record TconnResult(boolean ok, String message) { }
+
+    /**
+     * 无线调试连接：hdc tconn &lt;ip:port&gt;。
+     * 成功后设备会以 ip:port 形式出现在 list targets，由设备轮询自动发现。
+     */
+    public TconnResult tconn(String addr) {
+        ProcessRunner.Result r = runner.run(List.of(hdc.toString(), "tconn", addr), 15);
+        String out = r.output().trim();
+        String message = out.isEmpty() ? (r.ok() ? "已发起连接" : "连接失败") : out;
+        log.info("tconn {}: {}", addr, message);
+        return new TconnResult(r.ok(), message);
+    }
+
     public boolean fport(String sn, int localPort, String remote) {
         ProcessRunner.Result r = runner.run(
                 List.of(hdc.toString(), "-t", sn, "fport", "tcp:" + localPort, remote), 15);

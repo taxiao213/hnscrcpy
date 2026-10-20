@@ -36,6 +36,7 @@ public class App extends Application {
     private DeviceMonitor monitor;
     private MainView mainView;
     private AppConfig config;
+    private HdcClient hdc;
     private boolean noControl;
     private boolean autoConnectDone;
     /** serial → 已打开的投屏窗口；同设备只允许一个会话（设备侧 scrcpy 单例）。 */
@@ -47,8 +48,10 @@ public class App extends Application {
         applyCliToConfig();
 
         HdcClient hdc = new HdcClient();
-        mainView = new MainView(this::onDeviceSelected);
+        this.hdc = hdc;
+        mainView = new MainView(this::onDeviceSelected, this::connectWireless);
         mainView.applyConfig(config.bitRateMbps(), config.fps());
+        mainView.setWirelessAddr(config.lastWirelessAddr());
         monitor = new DeviceMonitor(hdc, this::onDevicesChanged);
         monitor.start();
 
@@ -87,6 +90,20 @@ public class App extends Application {
                         });
             }
         });
+    }
+
+    /**
+     * 无线连接回调（MainView 后台线程调用）：执行 hdc tconn。
+     * 成功返回 null 并记住地址；失败返回错误信息。
+     */
+    private String connectWireless(String addr) {
+        HdcClient.TconnResult r = hdc.tconn(addr);
+        if (r.ok()) {
+            config.setLastWirelessAddr(addr);
+            config.save();
+            return null;
+        }
+        return r.message();
     }
 
     private void onDeviceSelected(DeviceInfo device) {

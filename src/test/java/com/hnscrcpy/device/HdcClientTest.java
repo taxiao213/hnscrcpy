@@ -100,6 +100,31 @@ class HdcClientTest {
     }
 
     @Test
+    @DisplayName("tconn builds hdc tconn command and reports ok/message")
+    void tconn_buildsCommand() {
+        List<List<String>> captured = new ArrayList<>();
+        HdcClient hdc = new HdcClient(Path.of("/opt/hdc"), (cmd, t) -> {
+            captured.add(cmd);
+            return new ProcessRunner.Result(0, "Connect OK\n", "", false, 10);
+        });
+        HdcClient.TconnResult r = hdc.tconn("192.168.1.100:10123");
+        assertThat(r.ok()).isTrue();
+        assertThat(r.message()).isEqualTo("Connect OK");
+        assertThat(captured.get(0)).containsExactly(
+                "/opt/hdc", "tconn", "192.168.1.100:10123");
+    }
+
+    @Test
+    @DisplayName("tconn failure carries hdc output as message")
+    void tconn_reportsFailure() {
+        HdcClient hdc = new HdcClient(Path.of("/opt/hdc"), (cmd, t) ->
+                new ProcessRunner.Result(1, "", "Error: connect failed\n", false, 10));
+        HdcClient.TconnResult r = hdc.tconn("10.0.0.9:9999");
+        assertThat(r.ok()).isFalse();
+        assertThat(r.message()).contains("connect failed");
+    }
+
+    @Test
     @DisplayName("isOnline checks listTargets with retry")
     void isOnline_checksTargets() {
         Scripted runner = new Scripted();

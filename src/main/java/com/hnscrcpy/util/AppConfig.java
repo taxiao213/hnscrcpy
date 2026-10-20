@@ -25,6 +25,7 @@ public final class AppConfig {
 
     private final Path file;
     private String lastSerial = "";
+    private String lastWirelessAddr = "";
     private int bitRateMbps = 30;
     private int fps = 60;
     private boolean noControl;
@@ -47,6 +48,7 @@ public final class AppConfig {
         try (InputStream in = Files.newInputStream(file)) {
             p.load(in);
             cfg.lastSerial = p.getProperty("lastSerial", "");
+            cfg.lastWirelessAddr = p.getProperty("lastWirelessAddr", "");
             cfg.bitRateMbps = parseInt(p.getProperty("bitRateMbps"), 30);
             cfg.fps = parseInt(p.getProperty("fps"), 60);
             cfg.noControl = Boolean.parseBoolean(p.getProperty("noControl", "false"));
@@ -67,6 +69,7 @@ public final class AppConfig {
     public void save() {
         Properties p = new Properties();
         p.setProperty("lastSerial", lastSerial);
+        p.setProperty("lastWirelessAddr", lastWirelessAddr);
         p.setProperty("bitRateMbps", String.valueOf(bitRateMbps));
         p.setProperty("fps", String.valueOf(fps));
         p.setProperty("noControl", String.valueOf(noControl));
@@ -86,6 +89,14 @@ public final class AppConfig {
 
     public void setLastSerial(String sn) {
         this.lastSerial = sn == null ? "" : sn;
+    }
+
+    public String lastWirelessAddr() {
+        return lastWirelessAddr;
+    }
+
+    public void setLastWirelessAddr(String addr) {
+        this.lastWirelessAddr = addr == null ? "" : addr;
     }
 
     public int bitRateMbps() {
