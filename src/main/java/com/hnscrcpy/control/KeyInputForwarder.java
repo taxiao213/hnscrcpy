@@ -30,12 +30,19 @@ public final class KeyInputForwarder {
     private final ExecutorService controlExecutor;
     /** IME 组词中（拼音未上屏）：期间压住原始按键，只等 committed 文本。 */
     private volatile boolean composing;
+    /** 输入活动钩子（看门狗"输入预言机"用）；可空。 */
+    private Runnable activityHook = () -> { };
 
     public KeyInputForwarder(DeviceController controller, TextInjector textInjector,
                              ExecutorService controlExecutor) {
         this.controller = controller;
         this.textInjector = textInjector;
         this.controlExecutor = controlExecutor;
+    }
+
+    /** 注册输入活动钩子（每次实际下发按键/文本时触发）。 */
+    public void setActivityHook(Runnable hook) {
+        this.activityHook = hook != null ? hook : () -> { };
     }
 
     public void attach(Scene scene) {
@@ -60,12 +67,13 @@ public final class KeyInputForwarder {
         }
         composing = false;
         if (committed != null && !committed.isEmpty()) {
+            activityHook.run();
             textInjector.append(committed);
         }
         e.consume();
     }
 
-    /** 打字字符（KEY_TYPED 含 IME 上屏文本）：非控制字符一律攒批注入。 */
+    /** 打字字符（KEY_TYPED 含 IME 上屏文本）：快通道字符逐键直发，其余攒批注入。 */
     private void onTyped(KeyEvent e) {
         if (e.isShortcutDown() || composing) {
             return; // 加速器处理；IME 组词中的原始字母直接丢弃
@@ -78,8 +86,23 @@ public final class KeyInputForwarder {
         if (hasControl) {
             return; // 控制字符由 KEY_PRESSED 处理
         }
-        textInjector.append(c);
+        activityHook.run();
         e.consume();
+        // ASCII 快通道：~130ms/字符，接近实时。必须先冲刷文本缓冲（同一控制线程串行），
+        // 保证「先批量文本、后快通道键」的注入顺序不错乱
+        if (c.length() == 1 && com.hnscrcpy.control.KeyCharMap.isFast(c.charAt(0))) {
+            char ch = c.charAt(0);
+            controlExecutor.execute(() -> {
+                try {
+                    textInjector.flushSync();
+                    controller.typeKeyChar(ch);
+                } catch (RuntimeException ex) {
+                    log.warn("fast key '{}' forward failed: {}", ch, ex.toString());
+                }
+            });
+            return;
+        }
+        textInjector.append(c);
     }
 
     /** 控制键：冲刷文本缓冲后按 uinput 键值注入（同一线程序列化，保证先文后键）。 */
@@ -104,6 +127,7 @@ public final class KeyInputForwarder {
         final KeyCode keyCode = code;
         final Runnable forward = action;
         e.consume();
+        activityHook.run();
         controlExecutor.execute(() -> {
             try {
                 textInjector.flushSync();

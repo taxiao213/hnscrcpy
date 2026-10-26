@@ -48,12 +48,18 @@ public final class MirrorSession implements AutoCloseable {
     private static final long SLOW_RETRY_MS = 30_000;
     /** 设备侧 scrcpy 进程退出需要约 2s，重启前必须等待，防新旧实例冲突。 */
     private static final long RECONNECT_SETTLE_MS = 2_000;
-    /**
-     * 静默断流看门狗间隔。设备侧退出（screen exit / 被新会话抢占）时 gRPC 可能
-     * 无任何异常回调，流只是静默无帧；每间隔请求一次 IDR（静态画面也会被强制
-     * 推一帧），连续两轮无新帧即判死重连。
-     */
+    /** 看门狗间隔：每 tick 请求一次 IDR 保活，并检查本代是否有新帧。 */
     private static final long WATCHDOG_INTERVAL_MS = 10_000;
+    /** 首帧宽限：设备侧 daemon 冷启动 + 编码器初始化可能超过 10s，期内只催 IDR 不判死。 */
+    static final long STARTUP_GRACE_MS = 30_000;
+    /** 输入预言机窗口：窗口内有触摸/键盘注入却画面不变 → 流大概率真死，快速重连。 */
+    static final long INPUT_ACTIVE_WINDOW_MS = 15_000;
+    /**
+     * 纯静默兜底（tick 数）：静态画面不推帧是 hosScrcpy 1.0.20 的正常行为，
+     * 探活成功的静默不再立刻重连（旧逻辑每 ~25s 误杀健康流，见 v1.0.3 修复）；
+     * 仅当静默持续约 5 分钟（覆盖真·静默死亡）才兜底重连一次。
+     */
+    static final int PASSIVE_RECONNECT_TICKS = 30;
     /**
      * 降采样 hint 量化步长（px）。视图 layoutBounds 有亚像素抖动（±1-2px），
      * 直接 ceil(×2) 会在相邻值间高频翻转，导致 sws 缩放器与环形缓冲逐帧重建
@@ -71,7 +77,7 @@ public final class MirrorSession implements AutoCloseable {
     private final String serial;
     private final ExecutorService controlExecutor;
     private final DecoderPump pump;
-    private final FrameRenderer renderer = new FrameRenderer();
+    private final FrameRenderer renderer;
     private final RenderScheduler renderScheduler;
     private final Consumer<String> statusListener;
     private final ScheduledExecutorService reconnectScheduler;
@@ -82,12 +88,28 @@ public final class MirrorSession implements AutoCloseable {
     private ScheduledFuture<?> watchdogTask;
     /** 当前生效的降采样 hint（量化后）；null 表示尚未初始化。 */
     private volatile int[] currentHint;
+    /** 本代流开始时间（看门狗启动宽限用）；仅看门狗线程读写。 */
+    private long streamStartedAtMs;
+    /** 连续静默 tick 数（无新帧）；仅看门狗线程读写。 */
+    private int silentTicks;
+    /** 最近一次输入注入时间（nanoTime；0=从未输入）。看门狗"输入预言机"用。 */
+    private final AtomicLong lastInputAtNanos = new AtomicLong();
 
     private volatile State state = State.IDLE;
 
     public MirrorSession(String sn, VideoConfig config, Consumer<String> statusListener) {
+        this(sn, config, statusListener, new FrameRenderer());
+    }
+
+    /**
+     * @param renderer 调用方预建的渲染器（窗口可先上屏、会话后台异步启动）；
+     *                 本会话独占该渲染器。
+     */
+    public MirrorSession(String sn, VideoConfig config, Consumer<String> statusListener,
+                         FrameRenderer renderer) {
         this.statusListener = statusListener;
         this.serial = sn;
+        this.renderer = renderer;
         Path jar = HosScrcpyLocator.locate()
                 .orElseThrow(() -> new SessionException(HosScrcpyLocator.guidance()));
         Path hdcPath = HdcLocator.locate();
@@ -95,7 +117,9 @@ public final class MirrorSession implements AutoCloseable {
         this.stream = new HosScrcpyStream(bridge, sn);
         HdcClient hdc = new HdcClient(hdcPath);
         this.controller = new DeviceController(bridge, hdc, sn);
-        this.textInjector = new com.hnscrcpy.control.TextInjector(hdc, sn);
+        this.textInjector = new com.hnscrcpy.control.TextInjector(
+                new com.hnscrcpy.control.DeviceShell(
+                        (cmd, timeout) -> bridge.executeShellCommand(cmd, timeout), hdc, sn), sn);
         int[] screen = hdc.screenSize(sn).orElse(FALLBACK_SCREEN);
         this.mapper = new CoordinateMapper(screen[0], screen[1]);
         this.controlExecutor = Executors.newSingleThreadExecutor(r -> {
@@ -112,6 +136,16 @@ public final class MirrorSession implements AutoCloseable {
             return t;
         });
         pump.setErrorHandler(this::onStreamFailure);
+        // 流就绪即催 IDR：hosScrcpy 1.0.20 首帧参数集可能延迟数秒才推，主动催缩短黑屏
+        pump.setReadyListener(() -> {
+            if (state != State.CLOSED) {
+                try {
+                    stream.requestIDRFrame();
+                } catch (RuntimeException e) {
+                    log.debug("IDR request on ready failed: {}", e.toString());
+                }
+            }
+        });
         renderScheduler.setStatsListener(fps -> status("FPS " + fps
                 + " | 解码 " + pump.decodedCount() + " | 丢帧 " + pump.droppedCount()));
         // 旋转自适应：解码帧宽高比变化时同步映射器
@@ -162,8 +196,12 @@ public final class MirrorSession implements AutoCloseable {
         return out;
     }
 
-    /** 启动会话；失败抛 SessionException。 */
-    public void start() {
+    /**
+     * 启动会话；失败抛 SessionException。synchronized：异步启动期间窗口被关时
+     * close() 会等待本方法完成（最长为 startCaptureScreen 的设备握手时间），
+     * 随后由 close() 正常清理，不泄漏会话。
+     */
+    public synchronized void start() {
         if (state != State.IDLE) {
             throw new IllegalStateException("session already started: " + state);
         }
@@ -176,6 +214,17 @@ public final class MirrorSession implements AutoCloseable {
             pump.close();
             status("连接失败: " + e.getMessage());
             throw e instanceof SessionException se ? se : new SessionException(e.getMessage(), e);
+        }
+        if (state == State.CLOSED) {
+            // 理论上到不了（close 会等本方法），防御性回滚刚建立的流
+            log.info("session closed while starting, rolling back");
+            try {
+                stream.stop();
+            } catch (RuntimeException e) {
+                log.debug("rollback stream stop failed: {}", e.toString());
+            }
+            pump.close();
+            return;
         }
         renderScheduler.start();
         state = State.STREAMING;
@@ -199,6 +248,11 @@ public final class MirrorSession implements AutoCloseable {
 
     public CoordinateMapper mapper() {
         return mapper;
+    }
+
+    /** 记录一次输入注入（触摸/键盘/粘贴）；看门狗据此判断"有输入却画面不变"。 */
+    public void noteInputActivity() {
+        lastInputAtNanos.set(System.nanoTime());
     }
 
     public ExecutorService controlExecutor() {
@@ -250,13 +304,20 @@ public final class MirrorSession implements AutoCloseable {
         DiagnosticRegistry.record(serial, Type.STREAM_ERROR, t.toString());
         DiagnosticRegistry.record(serial, Type.RECONNECT_SCHEDULED,
                 "第 " + attempt + " 次重连，" + delay + "ms 后");
-        reconnectScheduler.schedule(() -> {
+        try {
+            reconnectScheduler.schedule(() -> {
+                reconnectPending.set(false);
+                reconnect();
+            }, delay, TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            // close() 已关闭调度器：竞态窗口内的失败回调直接丢弃
             reconnectPending.set(false);
-            reconnect();
-        }, delay, TimeUnit.MILLISECONDS);
+            log.debug("reconnect discarded, scheduler shut down");
+        }
     }
 
-    private void reconnect() {
+    /** synchronized：与 close() 互斥，避免关窗竞态里把流重新拉活成僵尸会话。 */
+    private synchronized void reconnect() {
         if (state == State.CLOSED || state == State.STREAMING) {
             return;
         }
@@ -281,6 +342,8 @@ public final class MirrorSession implements AutoCloseable {
 
     private void startWatchdog() {
         watchdogLastDecoded.set(-1);
+        silentTicks = 0;
+        streamStartedAtMs = System.currentTimeMillis();
         if (watchdogTask != null) {
             watchdogTask.cancel(false);
         }
@@ -288,21 +351,84 @@ public final class MirrorSession implements AutoCloseable {
                 WATCHDOG_INTERVAL_MS, WATCHDOG_INTERVAL_MS, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * 看门狗 tick。hosScrcpy 1.0.20 静态画面不推帧、IDR 请求也不强制推，
+     * 「无新帧」≠「流已死」——先探活/看输入活动再决定是否重连：
+     * 1. 有新帧 → 清零静默计数，IDR 保活；
+     * 2. 首帧未到 → 宽限期内只催 IDR，超宽限重连；
+     * 3. 首帧后静默 → {@link #shouldReconnectOnSilence}（探活 + 输入预言机 + 兜底）。
+     */
     private void watchdogTick() {
         if (state != State.STREAMING) {
             watchdogLastDecoded.set(-1);
             return;
         }
         long decoded = pump.decodedCount();
-        if (decoded == watchdogLastDecoded.get()) {
-            log.warn("no new frame within {}ms despite IDR request, stream stalled",
-                    WATCHDOG_INTERVAL_MS);
-            DiagnosticRegistry.record(serial, Type.WATCHDOG_STALL,
-                    WATCHDOG_INTERVAL_MS + "ms 无新帧（请求 IDR 后）");
+        if (decoded != watchdogLastDecoded.get()) {
+            watchdogLastDecoded.set(decoded);
+            silentTicks = 0;
+            requestIdr();
+            return;
+        }
+        silentTicks++;
+        if (decoded == 0) {
+            if (System.currentTimeMillis() - streamStartedAtMs < STARTUP_GRACE_MS) {
+                log.debug("awaiting first frame ({}ms), requesting IDR",
+                        System.currentTimeMillis() - streamStartedAtMs);
+                requestIdr();
+                return;
+            }
+            log.warn("no frame within startup grace {}ms, reconnecting", STARTUP_GRACE_MS);
+            DiagnosticRegistry.record(serial, Type.WATCHDOG_STALL, "启动宽限 " + STARTUP_GRACE_MS + "ms 内零帧");
             onStreamFailure(new StreamStalledException());
             return;
         }
-        watchdogLastDecoded.set(decoded);
+        long lastInput = lastInputAtNanos.get();
+        boolean inputActive = lastInput != 0
+                && (System.nanoTime() - lastInput) / 1_000_000 < INPUT_ACTIVE_WINDOW_MS;
+        boolean probeAlive = probeAlive();
+        if (shouldReconnectOnSilence(probeAlive, silentTicks, inputActive)) {
+            log.warn("stream silent: probeAlive={}, silentTicks={}, inputActive={} -> reconnect",
+                    probeAlive, silentTicks, inputActive);
+            DiagnosticRegistry.record(serial, Type.WATCHDOG_STALL,
+                    "静默判死：探活=" + probeAlive + " 静默轮=" + silentTicks + " 有输入=" + inputActive);
+            onStreamFailure(new StreamStalledException());
+            return;
+        }
+        log.debug("static screen (probe alive, {} silent ticks), keep waiting", silentTicks);
+        requestIdr();
+    }
+
+    /**
+     * 静默判死决策（纯函数，便于单测）：
+     * - 有输入活动且连续 2 轮无帧 → 死（输入本应改变画面）；
+     * - 探活失败 → 死（守护进程/通道异常）；
+     * - 探活正常 = 静态画面，仅静默累计到兜底轮数才重连（覆盖真·静默死亡）。
+     */
+    static boolean shouldReconnectOnSilence(boolean probeAlive, int silentTicks, boolean inputActive) {
+        if (inputActive && silentTicks >= 2) {
+            return true;
+        }
+        if (!probeAlive) {
+            return true;
+        }
+        return silentTicks >= PASSIVE_RECONNECT_TICKS;
+    }
+
+    /** 探活：经桥内 shell 执行只读命令，验证设备侧守护进程仍然活着。 */
+    private boolean probeAlive() {
+        try {
+            long t0 = System.nanoTime();
+            bridge.executeShellCommand("param get const.product.name", 5);
+            log.debug("watchdog probe ok ({}ms)", (System.nanoTime() - t0) / 1_000_000);
+            return true;
+        } catch (RuntimeException e) {
+            log.warn("watchdog probe failed: {}", e.toString());
+            return false;
+        }
+    }
+
+    private void requestIdr() {
         try {
             stream.requestIDRFrame();
         } catch (RuntimeException e) {
@@ -311,8 +437,9 @@ public final class MirrorSession implements AutoCloseable {
         }
     }
 
+    /** synchronized：与异步 start() 互斥，启动中关窗会等启动完成后再清理。 */
     @Override
-    public void close() {
+    public synchronized void close() {
         if (state == State.CLOSED) {
             return;
         }

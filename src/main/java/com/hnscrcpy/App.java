@@ -30,7 +30,25 @@ import java.util.Map;
 public class App extends Application {
 
     private static final Logger log = LoggerFactory.getLogger(App.class);
-    public static final String VERSION = "1.0.1";
+    /** 运行时从 app.properties 读取（构建期由 Maven 过滤注入 pom 版本），永远与 tag 一致。 */
+    public static final String VERSION = loadVersion();
+
+    private static String loadVersion() {
+        try (var in = App.class.getResourceAsStream("/app.properties")) {
+            if (in != null) {
+                var p = new java.util.Properties();
+                p.load(in);
+                String v = p.getProperty("app.version");
+                // 含 ${ 说明资源过滤未生效（直接跑 classes 目录），按未知版本兜底
+                if (v != null && !v.isBlank() && !v.contains("${")) {
+                    return v.trim();
+                }
+            }
+        } catch (java.io.IOException e) {
+            log.warn("read app.properties failed: {}", e.toString());
+        }
+        return "0.0.0-dev";
+    }
     private static CliOptions cliOptions = CliOptions.defaults();
 
     private DeviceMonitor monitor;
@@ -44,6 +62,9 @@ public class App extends Application {
 
     @Override
     public void start(Stage stage) {
+        // FX 线程未捕获异常默认只打印到 stderr（打包后不可见），落盘便于排查闪退
+        Thread.currentThread().setUncaughtExceptionHandler((t, e) ->
+                log.error("uncaught exception on FX application thread", e));
         config = AppConfig.load();
         applyCliToConfig();
 
@@ -149,7 +170,7 @@ public class App extends Application {
             System.exit(0);
         }
         if (cliOptions.version()) {
-            System.out.println("hnscrcpy " + VERSION);
+            System.out.println("hnscrcpy v" + VERSION);
             System.exit(0);
         }
         launch(args);

@@ -149,6 +149,40 @@ class H264DecoderTest {
         }
     }
 
+    @Test
+    @DisplayName("close does not invalidate previously decoded frame pixels (no use-after-free)")
+    void close_previousFrameStillReadable() throws Exception {
+        byte[] sample;
+        try (InputStream in = getClass().getResourceAsStream("/sample1.h264")) {
+            sample = in.readAllBytes();
+        }
+        List<byte[]> units = H264Decoder.splitAccessUnits(sample);
+        H264Decoder decoder = new H264Decoder(units.get(0));
+        VideoFrame f = null;
+        for (int i = 1; i < units.size() && f == null; i++) {
+            f = decoder.decode(units.get(i));
+        }
+        if (f == null) {
+            f = decoder.flush();
+        }
+        assertThat(f).isNotNull();
+
+        decoder.close();
+        decoder.close(); // 幂等：二次关闭不得重复释放
+
+        // 旧帧的 IntBuffer 视图在 close 后仍须可读（环形缓冲交 GC，不显式释放，
+        // 否则渲染/截图线程持有旧视图时就是 use-after-free 闪退）
+        java.nio.IntBuffer px = f.pixels();
+        assertThat(px.remaining()).isEqualTo(1272 * 2860);
+        int checksum = 0;
+        for (int i = 0; i < 256; i++) {
+            checksum += px.get(i);
+        }
+        // close 后 decode/flush 安全返回 null，不得触碰已释放的解码上下文
+        assertThat(decoder.decode(units.get(1))).isNull();
+        assertThat(decoder.flush()).isNull();
+    }
+
     private static boolean hasNalType(byte[] au, int type) {
         for (int i = 0; i + 4 < au.length; i++) {
             if (au[i] == 0 && au[i + 1] == 0 && au[i + 2] == 0 && au[i + 3] == 1

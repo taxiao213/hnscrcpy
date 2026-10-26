@@ -52,6 +52,8 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
     private Thread pumpThread;
     private volatile boolean running;
     private volatile Consumer<Throwable> errorHandler = t -> { };
+    /** 流就绪回调（gRPC 线程）：会话层用来立刻催 IDR，缩短首帧等待。 */
+    private volatile Runnable readyListener = () -> { };
     /** 最近一条纯参数集消息（首包）。跨重连保留：IDR 不内嵌参数集，重连后设备侧可能不重发。 */
     private volatile byte[] paramSets;
     /**
@@ -71,6 +73,11 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
     /** 流异常/结束回调（gRPC 线程调用）；由会话层接管重连。 */
     public void setErrorHandler(Consumer<Throwable> handler) {
         this.errorHandler = handler != null ? handler : t -> { };
+    }
+
+    /** 流就绪回调（gRPC 线程调用，必须快且不抛）。 */
+    public void setReadyListener(Runnable listener) {
+        this.readyListener = listener != null ? listener : () -> { };
     }
 
     /** 设置解码输出尺寸上限；传 null 恢复原始尺寸。渲染侧按视图大小（×2 超采样）更新。 */
@@ -98,6 +105,11 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
     public void onStreamReady() {
         markSerial();
         log.info("stream ready");
+        try {
+            readyListener.run();
+        } catch (RuntimeException e) {
+            log.debug("ready listener failed: {}", e.toString());
+        }
     }
 
     @Override
@@ -241,6 +253,12 @@ public final class DecoderPump implements FrameSink, AutoCloseable {
     public void restart() {
         stop();
         joinPumpThread();
+        // 旧帧的 IntBuffer 视图指向旧解码器环形缓冲：重连后渲染线程绝不能再看到它
+        // （旧解码器内存随时被 GC 回收，渲染旧视图 = 花屏/use-after-free 闪退）
+        latest.set(null);
+        // 计数器按代清零：状态栏与看门狗（首帧判定）都以本代为准
+        decodedCount.set(0);
+        droppedCount.set(0);
         closeDecoder();
         start();
     }

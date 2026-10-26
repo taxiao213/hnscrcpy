@@ -29,6 +29,7 @@ jpackage `
   --main-jar (Split-Path $JAR -Leaf) `
   --main-class com.hnscrcpy.Launcher `
   --java-options "-Xmx1G" `
+  --java-options "-XX:ErrorFile=$env:TEMP\hnscrcpy_hs_err_pid%p.log" `
   --icon $ICON `
   --dest target/dist
 
@@ -42,6 +43,7 @@ if ($env:INSTALLER -eq "1") {
     --main-jar (Split-Path $JAR -Leaf) `
     --main-class com.hnscrcpy.Launcher `
     --java-options "-Xmx1G" `
+    --java-options "-XX:ErrorFile=$env:TEMP\hnscrcpy_hs_err_pid%p.log" `
     --win-menu `
     --win-shortcut `
     --icon $ICON `

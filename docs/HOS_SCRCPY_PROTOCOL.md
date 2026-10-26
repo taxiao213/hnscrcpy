@@ -185,9 +185,15 @@ uitest uiInput inputText <x> <y> '<text>'   # 经设备 IME 通道注入，支�
 
 - 坐标 = 「最后触摸点」（客户端在触摸按下时记录输入焦点锚点，见 `InputForwarder.setTouchListener`）
 - 文本包单引号，内部 `'` 按 shell 规则转义为 `'\''`；换行拆段、段间 `uinput -K -d 2054 -u 2054`（Enter）
-- 控制键走 uinput：TAB=2049 / ENTER=2054 / DEL(退格)=2055（OpenHarmony KeyCode 文档值）；
-  **ESCAPE=2070 与方向键 2071-2074 未真机标定**，连真机后跑 `scripts/spike-text-inject.sh` 修正
-- ⚠️ 待真机验证（`scripts/spike-text-inject.sh`）：① `uitest uiInput inputText` 子命令在本机
+- 控制键走 uinput：TAB=2049 / ENTER=2054 / DEL(退格)=2055 / **方向键=2012-2015（真机标定，
+  文档猜测的 2071-2074 是错的）**；ESCAPE=2070 未单独标定（编辑器内无可观测效果）
+- **ASCII 快通道键码表（scripts/spike-keymap.sh 真机标定，2026-10-26，v1.0.3 起用于逐键直发）**：
+  数字 2000-2009、字母 2017-2042、**空格=2050（非文档值 2052）**、`,`=2043、`.`=2044、
+  `` ` ``=2056、`-`=2057、`=`=2058、`[`=2059、`]`=2060、`\`=2061、`;`=2062、`'`=2063、`/`=2064、
+  Shift=2047；**单命令多段 -d/-u（Shift 组合）实测可用**（`uinput -K -d 2047 -d 2017 -u 2017 -u 2047` → 'A'），
+  移位符号按 US 布局（shift+1→'!'、shift+-→'_'、shift+/→'?' 实测）。全 95 个可打印 ASCII 均可走快通道
+  （`KeyCharMap`），单字符延迟 ~900ms→~130ms；中文/未映射字符仍走 inputText
+- ⚠️ 已验证（`scripts/spike-text-inject.sh`）：① `uitest uiInput inputText` 子命令在本机
   uitest 6.0.2.3 上是否存在；② 注入时是否重点击坐标（可能移动光标）；③ 中文注入实际效果；
   ④ 若通道不可用，退路是 agent JSON-RPC 探测（B socket 发 hypiumApiHelper 其他 api 名）
 - 「粘贴」= 同通道整段注入（设备无公开剪贴板写入命令，pasteboard 服务只能 dump 不能 set）；

@@ -32,25 +32,27 @@ public final class DeviceController {
     private static final int KEY_VOLUME_UP = 16;
     private static final int KEY_VOLUME_DOWN = 17;
 
-    // OpenHarmony KeyCode 文档值：TAB=2049 / ENTER=2054 / DEL(退格)=2055；
-    // ESCAPE 与方向键（2071-2074）未真机标定，spike 验证后修正（docs/HOS_SCRCPY_PROTOCOL.md §10）
+    // OpenHarmony KeyCode 真机标定值（scripts/spike-keymap.sh，2026-10-26）：
+    // TAB=2049 / ENTER=2054 / DEL(退格)=2055 / 方向键=2012-2015（非文档记的 2071-2074！）
+    // ESCAPE=2070 与 DPAD_CENTER=2016 未单独验证（编辑器内无可观测效果）
     public static final int KEY_TAB = 2049;
     public static final int KEY_ENTER = 2054;
     public static final int KEY_BACKSPACE = 2055;
     static final int KEY_ESCAPE = 2070;
-    static final int KEY_DPAD_UP = 2071;
-    static final int KEY_DPAD_DOWN = 2072;
-    static final int KEY_DPAD_LEFT = 2073;
-    static final int KEY_DPAD_RIGHT = 2074;
+    static final int KEY_DPAD_UP = 2012;
+    static final int KEY_DPAD_DOWN = 2013;
+    static final int KEY_DPAD_LEFT = 2014;
+    static final int KEY_DPAD_RIGHT = 2015;
 
     private final HosScrcpyBridge bridge;
-    private final HdcClient hdc;
-    private final String sn;
+    private final DeviceShell shell;
 
     public DeviceController(HosScrcpyBridge bridge, HdcClient hdc, String sn) {
         this.bridge = bridge;
-        this.hdc = hdc;
-        this.sn = sn;
+        // 按键走桥内 shell（~130ms），桥异常回退 hdc 子进程（~270ms）
+        this.shell = new DeviceShell(
+                bridge == null ? null : (cmd, timeout) -> bridge.executeShellCommand(cmd, timeout),
+                hdc, sn);
     }
 
     public void touchDown(int x, int y) {
@@ -157,8 +159,29 @@ public final class DeviceController {
     }
 
     private void pressKey(int code) {
-        String out = hdc.shell(sn, "uinput -K -d " + code + " -u " + code);
+        String out = shell.exec("uinput -K -d " + code + " -u " + code, 10);
         log.debug("uinput key {} -> {}", code, out);
+    }
+
+    /**
+     * ASCII 快通道：字符直接发 uinput 键盘事件（~130ms/字符，远低于 inputText ~900ms）。
+     * 无需焦点坐标、不经设备 IME 文本接口。Shift 组合键依赖单命令多段 -d/-u 支持
+     * （KeyCharMap.COMBINED_SEQUENCE_OK，spike 标定）。
+     *
+     * @return false 表示该字符无快通道映射，调用方回退 inputText 批量注入
+     */
+    public boolean typeKeyChar(char c) {
+        if (!KeyCharMap.isFast(c)) {
+            return false;
+        }
+        int code = KeyCharMap.keyCode(c);
+        String cmd = KeyCharMap.needsShift(c)
+                ? "uinput -K -d " + KeyCharMap.KEY_SHIFT_LEFT + " -d " + code
+                        + " -u " + code + " -u " + KeyCharMap.KEY_SHIFT_LEFT
+                : "uinput -K -d " + code + " -u " + code;
+        String out = shell.exec(cmd, 10);
+        log.debug("uinput char '{}' (code={}) -> {}", c, code, out);
+        return true;
     }
 
     private static final Class<?>[] XY = {int.class, int.class};

@@ -37,11 +37,11 @@ public final class TextInjector implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(TextInjector.class);
 
     /** 打字停顿该时长后批量注入。 */
-    static final long IDLE_FLUSH_MS = 150;
+    static final long IDLE_FLUSH_MS = 80;
     /** 单次 shell 注入文本分片上限（字符），防命令行参数过长。 */
     static final int MAX_SLICE = 2000;
 
-    private final HdcClient hdc;
+    private final DeviceShell shell;
     private final String sn;
     private final ExecutorService executor;
     private final ScheduledExecutorService scheduler;
@@ -51,8 +51,14 @@ public final class TextInjector implements AutoCloseable {
     private ScheduledFuture<?> pending;
     private volatile boolean closed;
 
+    /** 仅 hdc 通道（测试/无桥场景）。 */
     public TextInjector(HdcClient hdc, String sn) {
-        this.hdc = hdc;
+        this(DeviceShell.overHdc(hdc, sn), sn);
+    }
+
+    /** 桥内优先通道（正式会话）。 */
+    public TextInjector(DeviceShell shell, String sn) {
+        this.shell = shell;
         this.sn = sn;
         this.executor = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "text-inject");
@@ -114,7 +120,8 @@ public final class TextInjector implements AutoCloseable {
             }
         }
         try {
-            executor.submit(this::flushLocked).get(5, TimeUnit.SECONDS);
+            // 有界等待：注入队列积压时按键最坏延迟 2.5s（旧值 5s 体感卡死）
+            executor.submit(this::flushLocked).get(2500, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
             log.warn("flushSync failed: {}", e.toString());
         }
@@ -165,7 +172,7 @@ public final class TextInjector implements AutoCloseable {
 
     private void injectSlice(String slice) {
         if ("\n".equals(slice)) {
-            String out = hdc.shell(sn, "uinput -K -d " + DeviceController.KEY_ENTER
+            String out = shell.exec("uinput -K -d " + DeviceController.KEY_ENTER
                     + " -u " + DeviceController.KEY_ENTER, 10);
             log.debug("newline -> uinput ENTER: {}", out.trim());
             return;
@@ -181,7 +188,7 @@ public final class TextInjector implements AutoCloseable {
         }
         String cmd = buildInputCommand(a[0], a[1], text);
         try {
-            String out = hdc.shell(sn, cmd, 15);
+            String out = shell.exec(cmd, 15);
             if (out.contains("[Fail]")) {
                 DiagnosticRegistry.record(sn, Type.TEXT_INJECT_FAILED, out.trim());
                 log.warn("inputText failed: {}", out.trim());

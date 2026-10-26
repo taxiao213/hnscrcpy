@@ -30,17 +30,17 @@ import java.util.List;
 
 public final class SideToolbar extends VBox {
 
-    /** 工具条与菜单共用的动作集。 */
+    /** 工具条与菜单共用的动作集；topState 供「窗口置顶」菜单项显示勾选状态。 */
     public record Actions(Runnable onClose, Runnable onScreenshot, Runnable onRotate,
                           Runnable onPower, Runnable onVolumeUp, Runnable onVolumeDown,
                           Runnable onBack, Runnable onHome, Runnable onRecent,
                           Runnable onPaste, Runnable onTextInput, Runnable onToggleTop,
-                          Runnable onAbout) {
+                          Runnable onAbout, java.util.function.BooleanSupplier topState) {
     }
 
-    /** 菜单项：图标 + 文案 + 快捷键（可空）。MirrorWindow 用 shortcut 注册加速器。 */
+    /** 菜单项：图标 + 文案 + 快捷键（可空）+ 勾选态。MirrorWindow 用 shortcut 注册加速器。 */
     public record MenuEntry(String label, Group icon, KeyCombination shortcut,
-                            String shortcutText, Runnable action) {
+                            String shortcutText, Runnable action, boolean checked) {
     }
 
     private static final double ICON = 19;
@@ -84,38 +84,39 @@ public final class SideToolbar extends VBox {
                 volUp, volDown, paste, hSep(), back, home, recent);
     }
 
-    /** 菜单项列表（与下拉菜单、场景加速器共用同一定义）。 */
+    /** 菜单项列表（与下拉菜单、场景加速器共用同一定义）；每次打开菜单时重建，勾选态实时反映。 */
     public List<MenuEntry> menuEntries() {
+        boolean top = actions.topState().getAsBoolean();
         List<MenuEntry> entries = new ArrayList<>();
         entries.add(new MenuEntry("窗口置顶", ToolIcons.svg(ToolIcons.PIN, MENU_ICON),
-                sc(KeyCode.T), null, actions.onToggleTop()));
+                sc(KeyCode.T), null, actions.onToggleTop(), top));
         entries.add(new MenuEntry("截图", ToolIcons.svg(ToolIcons.CAMERA, MENU_ICON, true),
-                sc(KeyCode.S, KeyCombination.SHIFT_DOWN), null, actions.onScreenshot()));
+                sc(KeyCode.S, KeyCombination.SHIFT_DOWN), null, actions.onScreenshot(), false));
         entries.add(new MenuEntry("旋转", ToolIcons.svg(ToolIcons.ROTATE, MENU_ICON),
-                sc(KeyCode.R), null, actions.onRotate()));
+                sc(KeyCode.R), null, actions.onRotate(), false));
         entries.add(new MenuEntry("音量加", ToolIcons.svg(ToolIcons.VOL_UP, MENU_ICON),
-                sc(KeyCode.EQUALS, KeyCombination.SHIFT_DOWN), null, actions.onVolumeUp()));
+                sc(KeyCode.EQUALS, KeyCombination.SHIFT_DOWN), null, actions.onVolumeUp(), false));
         entries.add(new MenuEntry("音量减", ToolIcons.svg(ToolIcons.VOL_DOWN, MENU_ICON),
-                sc(KeyCode.MINUS), null, actions.onVolumeDown()));
+                sc(KeyCode.MINUS), null, actions.onVolumeDown(), false));
         entries.add(new MenuEntry("返回", ToolIcons.navBack(MENU_ICON),
-                sc(KeyCode.BACK_SPACE), null, actions.onBack()));
+                sc(KeyCode.BACK_SPACE), null, actions.onBack(), false));
         entries.add(new MenuEntry("主页", ToolIcons.navHome(MENU_ICON),
-                sc(KeyCode.H, KeyCombination.SHIFT_DOWN), null, actions.onHome()));
+                sc(KeyCode.H, KeyCombination.SHIFT_DOWN), null, actions.onHome(), false));
         entries.add(new MenuEntry("最近任务", ToolIcons.navRecent(MENU_ICON),
-                sc(KeyCode.O, KeyCombination.SHIFT_DOWN), null, actions.onRecent()));
+                sc(KeyCode.O, KeyCombination.SHIFT_DOWN), null, actions.onRecent(), false));
         entries.add(new MenuEntry("粘贴到输入框", ToolIcons.svg(ToolIcons.PASTE, MENU_ICON),
-                sc(KeyCode.V), null, actions.onPaste()));
+                sc(KeyCode.V), null, actions.onPaste(), false));
         entries.add(new MenuEntry("输入文本…", ToolIcons.svg(ToolIcons.KEYBOARD, MENU_ICON),
-                sc(KeyCode.I), null, actions.onTextInput()));
+                sc(KeyCode.I), null, actions.onTextInput(), false));
         entries.add(new MenuEntry("电源", ToolIcons.svg(ToolIcons.POWER, MENU_ICON),
-                null, null, actions.onPower()));
+                null, null, actions.onPower(), false));
         entries.add(new MenuEntry("关于 hnscrcpy", ToolIcons.svg(ToolIcons.INFO, MENU_ICON),
-                null, null, actions.onAbout()));
+                null, null, actions.onAbout(), false));
         // 快捷键展示文本由 KeyCombination 生成，保持与注册一致
         return entries.stream()
                 .map(e -> new MenuEntry(e.label(), e.icon(), e.shortcut(),
                         e.shortcut() != null ? displayText((KeyCodeCombination) e.shortcut()) : null,
-                        e.action()))
+                        e.action(), e.checked()))
                 .toList();
     }
 
@@ -152,16 +153,21 @@ public final class SideToolbar extends VBox {
     private HBox menuRow(MenuEntry entry) {
         var label = new javafx.scene.control.Label(entry.label());
         label.getStyleClass().add("menu-label");
-        HBox row = new HBox(iconCell(entry.icon()), label);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox row = new HBox(iconCell(entry.icon()), label, spacer);
         row.setAlignment(Pos.CENTER_LEFT);
         row.setSpacing(10);
         row.getStyleClass().add("menu-row");
+        if (entry.checked()) {
+            var check = new javafx.scene.control.Label("✓");
+            check.getStyleClass().add("menu-check");
+            row.getChildren().add(check);
+        }
         if (entry.shortcutText() != null) {
             var sc = new javafx.scene.control.Label(entry.shortcutText());
             sc.getStyleClass().add("menu-shortcut");
-            Region spacer = new Region();
-            HBox.setHgrow(spacer, Priority.ALWAYS);
-            row.getChildren().addAll(spacer, sc);
+            row.getChildren().add(sc);
         }
         row.setOnMouseClicked(e -> {
             menu.hide();

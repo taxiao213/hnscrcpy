@@ -33,6 +33,7 @@ jpackage \
   --main-jar "$(basename "$JAR")" \
   --main-class com.hnscrcpy.Launcher \
   --java-options "-Xmx1G" \
+  --java-options "-XX:ErrorFile=/tmp/hnscrcpy_hs_err_pid%p.log" \
   "${ICON_ARG[@]}" \
   --dest target/dist
 
@@ -48,6 +49,7 @@ if [ "${INSTALLER:-0}" = "1" ]; then
       --main-jar "$(basename "$JAR")" \
       --main-class com.hnscrcpy.Launcher \
       --java-options "-Xmx1G" \
+  --java-options "-XX:ErrorFile=/tmp/hnscrcpy_hs_err_pid%p.log" \
       --linux-package-name "$APP" \
       "${ICON_ARG[@]}" \
       --dest target/dist
@@ -60,6 +62,7 @@ if [ "${INSTALLER:-0}" = "1" ]; then
       --main-jar "$(basename "$JAR")" \
       --main-class com.hnscrcpy.Launcher \
       --java-options "-Xmx1G" \
+  --java-options "-XX:ErrorFile=/tmp/hnscrcpy_hs_err_pid%p.log" \
       "${ICON_ARG[@]}" \
       --dest target/dist
   fi

@@ -6,7 +6,7 @@
 
     <groupId>com.hnscrcpy</groupId>
     <artifactId>hnscrcpy</artifactId>
-    <version>1.0.2</version>
+    <version>1.0.3</version>
     <packaging>jar</packaging>
 
     <name>hnscrcpy</name>
@@ -124,6 +124,20 @@
     </dependencies>
 
     <build>
+        <resources>
+            <!-- 二进制资源（hdc 四平台 / hosScrcpy jar）绝不过滤，否则损坏 -->
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <excludes><exclude>app.properties</exclude></excludes>
+            </resource>
+            <!-- 仅 app.properties 过滤，注入 pom 版本号（App.VERSION 运行时读取） -->
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes><include>app.properties</include></includes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

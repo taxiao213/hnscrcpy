@@ -38,7 +38,7 @@ class DeviceControllerTest {
         }
 
         @Override
-        public String shell(String sn, String command) {
+        public String shell(String sn, String command, long timeoutSec) {
             commands.add(command);
             return "ok";
         }
@@ -85,7 +85,7 @@ class DeviceControllerTest {
     }
 
     @Test
-    @DisplayName("keys are sent through uinput shell with verified keycodes")
+    @DisplayName("keys go through the bridge shell channel with verified keycodes")
     void keys_useUinputKeycodes() {
         FakeHdc hdc = new FakeHdc();
         DeviceController ctl = new DeviceController(bridge, hdc, "SN99");
@@ -97,12 +97,34 @@ class DeviceControllerTest {
         ctl.keyVolumeUp();
         ctl.keyVolumeDown();
 
-        assertThat(hdc.commands).containsExactly(
-                "uinput -K -d 1 -u 1",
-                "uinput -K -d 2 -u 2",
-                "uinput -K -d 2720 -u 2720",
-                "uinput -K -d 18 -u 18",
-                "uinput -K -d 16 -u 16",
-                "uinput -K -d 17 -u 17");
+        // 桥内 executeShellCommand 优先（stub 记录 shell:<cmd>），不再起本地 hdc 子进程
+        assertThat(StubJar.log())
+                .contains("shell:uinput -K -d 1 -u 1")
+                .contains("shell:uinput -K -d 2 -u 2")
+                .contains("shell:uinput -K -d 2720 -u 2720")
+                .contains("shell:uinput -K -d 18 -u 18")
+                .contains("shell:uinput -K -d 16 -u 16")
+                .contains("shell:uinput -K -d 17 -u 17");
+        assertThat(hdc.commands).isEmpty();
+    }
+
+    @Test
+    @DisplayName("typeKeyChar: mapped ASCII goes uinput fast path, CJK returns false")
+    void typeKeyChar_fastPathAndFallback() {
+        FakeHdc hdc = new FakeHdc();
+        DeviceController ctl = new DeviceController(bridge, hdc, "SN99");
+
+        assertThat(ctl.typeKeyChar('a')).isTrue();
+        assertThat(ctl.typeKeyChar('5')).isTrue();
+        assertThat(StubJar.log())
+                .contains("shell:uinput -K -d " + KeyCharMap.keyCode('a')
+                        + " -u " + KeyCharMap.keyCode('a'))
+                .contains("shell:uinput -K -d " + KeyCharMap.keyCode('5')
+                        + " -u " + KeyCharMap.keyCode('5'));
+
+        // 无映射字符：返回 false 且不发任何命令（调用方回退 inputText）
+        StubJar.clearLog();
+        assertThat(ctl.typeKeyChar('中')).isFalse();
+        assertThat(StubJar.log()).doesNotContain("shell:uinput");
     }
 }

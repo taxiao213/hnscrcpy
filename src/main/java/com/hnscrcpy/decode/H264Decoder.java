@@ -63,7 +63,9 @@ public final class H264Decoder implements AutoCloseable {
     private BytePointer paramSetsRef;
 
     private SwsContext sws;
-    /** 零拷贝环形原生缓冲：解码直接写入，VideoFrame 持 IntBuffer 视图，省掉每帧 int[] 分配+拷贝 */
+    /** 零拷贝环形原生缓冲：解码直接写入，VideoFrame 持 IntBuffer 视图，省掉每帧 int[] 分配+拷贝。
+     *  永不显式 deallocate：渲染/截图线程可能仍持有旧帧视图，显式释放 = use-after-free
+     *  （14.5MB 属 mmap 大对象，释放后再读 = SIGSEGV 闪退）。统一交 JavaCPP Cleaner 随 GC 释放。 */
     private static final int RING_SIZE = 4;
     private BytePointer[] rgbaRing;
     private IntBuffer[] viewRing;
@@ -74,6 +76,7 @@ public final class H264Decoder implements AutoCloseable {
     private int imgH;
     private int outW;
     private int outH;
+    private boolean closed;
 
     public H264Decoder() {
         this(null);
@@ -128,6 +131,9 @@ public final class H264Decoder implements AutoCloseable {
      * 像素搬运量可降一个数量级。maxOutW/H 传 0 表示原始尺寸。
      */
     public synchronized VideoFrame decode(byte[] annexB, int maxOutW, int maxOutH) {
+        if (closed) {
+            return null;
+        }
         av_packet_unref(packet);
         if (av_new_packet(packet, annexB.length) < 0) {
             throw new IllegalStateException("av_new_packet 失败");
@@ -162,6 +168,9 @@ public final class H264Decoder implements AutoCloseable {
      * 冲刷后解码器复位，可用于下一条流。
      */
     public synchronized VideoFrame flush() {
+        if (closed) {
+            return null;
+        }
         int ret = avcodec_send_packet(ctx, (AVPacket) null);
         if (ret < 0) {
             log.debug("flush send failed: {}", ret);
@@ -329,16 +338,25 @@ public final class H264Decoder implements AutoCloseable {
         return hasParams;
     }
 
+    /**
+     * 释放解码器与缩放器。环形缓冲不释放（见字段注释）：close 后此前返回的
+     * VideoFrame 视图依然可读。幂等；与 decode 互斥（pump join 超时的兜底保护）。
+     */
     @Override
-    public void close() {
+    public synchronized void close() {
+        if (closed) {
+            return;
+        }
+        closed = true;
         if (sws != null) {
             sws_freeContext(sws);
+            sws = null;
         }
-        if (rgbaRing != null) {
-            for (BytePointer p : rgbaRing) {
-                p.deallocate();
-            }
-        }
+        // 丢掉环形缓冲引用即可，不得 deallocate（Cleaner 会在视图无人持有后回收）
+        rgbaRing = null;
+        viewRing = null;
+        dstDataRing = null;
+        dstLinesizeRing = null;
         if (ctx != null) {
             avcodec_free_context(ctx); // 同时 av_free 掉 extradata（paramSetsRef 不得自行释放）
         }

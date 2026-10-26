@@ -53,6 +53,7 @@ public final class StubJar {
                 public void startCaptureScreen(ScreenCapCallback cb) { log("start"); cb.onReady(); }
                 public void stopCaptureScreen() { log("stop"); }
                 public void requestIDRFrame() { log("idr"); }
+                public String executeShellCommand(String cmd, int timeoutSec) { log("shell:" + cmd); return "stub-out"; }
                 public void onTouchDown(int x, int y) { log("touchDown:" + x + "," + y); }
                 public void onTouchMove(int x, int y) { log("touchMove:" + x + "," + y); }
                 public void onTouchUp(int x, int y) { log("touchUp:" + x + "," + y); }

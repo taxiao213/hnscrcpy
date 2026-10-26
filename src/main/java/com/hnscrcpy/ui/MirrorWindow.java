@@ -45,17 +45,19 @@ public final class MirrorWindow {
 
     private final Stage stage = new Stage();
     private final Label statusBar = new Label("初始化…");
-    private MirrorSession session;
+    private volatile MirrorSession session;
+    private volatile boolean windowClosed;
     private DeviceInfo device;
-    private boolean alwaysOnTop = false;
+    private boolean alwaysOnTop;
     private Runnable onClosed;
 
     public void open(DeviceInfo device, VideoConfig config, boolean controlEnabled) {
         this.device = device;
-        session = new MirrorSession(device.serial(), config, msg ->
-                javafx.application.Platform.runLater(() -> statusBar.setText(msg)));
-
-        ImageView view = session.getView();
+        // 渲染器预建：窗口立即上屏（状态栏显示连接进度），会话在后台异步建立。
+        // 会话构造含 hdc 调用、startCaptureScreen 设备握手最长 5s+，放 FX 线程会
+        // 把主窗口一起冻结（v1.0.3 修复「双击后 10 秒黑屏」的观感问题）
+        com.hnscrcpy.render.FrameRenderer renderer = new com.hnscrcpy.render.FrameRenderer();
+        ImageView view = renderer.getView();
         view.setPreserveRatio(true);
         // 圆角裁剪 + 投影，营造设备悬浮感
         Rectangle clip = new Rectangle();
@@ -114,28 +116,70 @@ public final class MirrorWindow {
         // 与活跃会话互踢设备侧 scrcpy 单例（2026-09-27 卡顿风暴根因）
         stage.setOnCloseRequest(e -> closeSession());
         stage.setOnHidden(e -> closeSession());
+        registerAccelerators(scene, toolbar);
+        stage.show();
 
+        Thread starter = new Thread(
+                () -> startSession(device, config, controlEnabled, renderer, view, scene),
+                "mirror-start-" + device.serial());
+        starter.setDaemon(true);
+        starter.start();
+    }
+
+    /** 后台线程：构造会话（hdc/桥初始化）→ 启动流 → 回 FX 线程挂载输入转发。 */
+    private void startSession(DeviceInfo device, VideoConfig config, boolean controlEnabled,
+                              com.hnscrcpy.render.FrameRenderer renderer, ImageView view, Scene scene) {
+        MirrorSession s;
         try {
-            session.start();
+            s = new MirrorSession(device.serial(), config, msg ->
+                    javafx.application.Platform.runLater(() -> statusBar.setText(msg)), renderer);
         } catch (RuntimeException e) {
-            log.error("session start failed", e);
-            statusBar.setText("启动失败: " + e.getMessage());
-            stage.show();
+            log.error("session init failed", e);
+            javafx.application.Platform.runLater(() -> statusBar.setText("启动失败: " + e.getMessage()));
             return;
         }
+        if (windowClosed) {
+            s.close();
+            return;
+        }
+        session = s;
+        try {
+            s.start();
+        } catch (RuntimeException e) {
+            log.error("session start failed", e);
+            session = null;
+            javafx.application.Platform.runLater(() -> statusBar.setText("启动失败: " + e.getMessage()));
+            return;
+        }
+        if (windowClosed) {
+            // 启动期间窗口已关：立刻回收会话，防僵尸互踢
+            s.close();
+            return;
+        }
+        javafx.application.Platform.runLater(() -> attachControl(s, view, scene, controlEnabled));
+    }
 
+    /** FX 线程：会话就绪后挂载触摸/键盘/IME 输入转发。 */
+    private void attachControl(MirrorSession s, ImageView view, Scene scene, boolean controlEnabled) {
+        if (windowClosed || session != s) {
+            return;
+        }
         if (controlEnabled) {
             // 挂在 ImageView 上：事件坐标即画面坐标，映射无 padding/居中偏移
-            InputForwarder forwarder = new InputForwarder(session.controller(), session.mapper(),
+            InputForwarder forwarder = new InputForwarder(s.controller(), s.mapper(),
                     () -> view.getLayoutBounds().getWidth(),
                     () -> view.getLayoutBounds().getHeight(),
-                    session.controlExecutor());
+                    s.controlExecutor());
             forwarder.attach(view);
             // 触摸点即输入焦点锚点：键盘打字 / ⌘V 粘贴注入到该位置
-            forwarder.setTouchListener(session.textInjector()::setAnchor);
+            forwarder.setTouchListener(s.textInjector()::setAnchor);
+            forwarder.setActivityHook(s::noteInputActivity);
             // 键盘输入：可打印字符攒批注入，控制键走 uinput
-            new com.hnscrcpy.control.KeyInputForwarder(session.controller(),
-                    session.textInjector(), session.controlExecutor()).attach(scene);
+            com.hnscrcpy.control.KeyInputForwarder keyForwarder =
+                    new com.hnscrcpy.control.KeyInputForwarder(s.controller(),
+                            s.textInjector(), s.controlExecutor());
+            keyForwarder.setActivityHook(s::noteInputActivity);
+            keyForwarder.attach(scene);
             // IME（中文输入法）需要焦点节点实现 InputMethodRequests 才会向场景提交事件
             view.setFocusTraversable(true);
             view.setInputMethodRequests(new javafx.scene.input.InputMethodRequests() {
@@ -162,8 +206,6 @@ public final class MirrorWindow {
         } else {
             log.warn("mirror window opened WITHOUT control (InputForwarder not attached)");
         }
-        registerAccelerators(scene, toolbar);
-        stage.show();
     }
 
     private SideToolbar.Actions buildActions() {
@@ -180,7 +222,12 @@ public final class MirrorWindow {
                 this::onPaste,
                 this::onTextInput,
                 this::onToggleTop,
-                this::onAbout);
+                this::onAbout,
+                this::isAlwaysOnTop);
+    }
+
+    private boolean isAlwaysOnTop() {
+        return alwaysOnTop;
     }
 
     private void registerAccelerators(Scene scene, SideToolbar toolbar) {
@@ -198,19 +245,25 @@ public final class MirrorWindow {
     }
 
     private void onRotate() {
+        MirrorSession s = session;
+        if (s == null) {
+            statusBar.setText("设备连接中，稍候再试");
+            return;
+        }
+        MirrorSession sessionRef = s;
         run(() -> {
-            if (session.mapper().isHorizontal()) {
-                session.controller().setRotationVertical();
-                session.mapper().setHorizontal(false);
+            if (sessionRef.mapper().isHorizontal()) {
+                sessionRef.controller().setRotationVertical();
+                sessionRef.mapper().setHorizontal(false);
             } else {
-                session.controller().setRotationHorizontal();
-                session.mapper().setHorizontal(true);
+                sessionRef.controller().setRotationHorizontal();
+                sessionRef.mapper().setHorizontal(true);
             }
         });
         // 窗口跟随旋转：按当前画面显示尺寸交换宽高，画面物理大小不变。
         // 多出的空间只会分配给 screenHolder（唯一 hgrow），横竖切换后画面依然填满。
         javafx.application.Platform.runLater(() -> {
-            var b = session.getView().getLayoutBounds();
+            var b = sessionRef.getView().getLayoutBounds();
             if (b.getWidth() > 0 && b.getHeight() > 0) {
                 double delta = b.getHeight() - b.getWidth();
                 stage.setWidth(stage.getWidth() + delta);
@@ -282,7 +335,8 @@ public final class MirrorWindow {
     private void onToggleTop() {
         alwaysOnTop = !alwaysOnTop;
         stage.setAlwaysOnTop(alwaysOnTop);
-        statusBar.setText(alwaysOnTop ? "窗口已置顶" : "已取消置顶");
+        // 状态栏提示是即时的（会被每秒 FPS 统计覆盖）；持久状态见菜单「窗口置顶」的 ✓ 标记
+        statusBar.setText(alwaysOnTop ? "窗口已置顶：始终显示在其他窗口上方" : "已取消置顶");
     }
 
     private void onScreenshot() {
@@ -305,7 +359,7 @@ public final class MirrorWindow {
     private void onAbout() {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("关于 hnscrcpy");
-        alert.setHeaderText("hnscrcpy " + com.hnscrcpy.App.VERSION);
+        alert.setHeaderText("hnscrcpy v" + com.hnscrcpy.App.VERSION);
         // displayName 已包含序列号，不再重复拼接
         String deviceText = device != null ? device.displayName() : "未连接";
         alert.setContentText("鸿蒙 NEXT 投屏远控工具\n设备: " + deviceText
@@ -362,6 +416,7 @@ public final class MirrorWindow {
                 .menu-row:hover { -fx-background-color: #ececf2; }
                 .menu-label { -fx-text-fill: #2c2c31; -fx-font-size: 13; }
                 .menu-shortcut { -fx-text-fill: #9a9aa2; -fx-font-size: 12; }
+                .menu-check { -fx-text-fill: #1a7f37; -fx-font-size: 13; -fx-font-weight: bold; }
                 .menu-sep { -fx-background-color: #ececf0; }
                 .about-dialog { -fx-background-color: #fbfbfc; }
                 .about-dialog .button {
@@ -376,13 +431,22 @@ public final class MirrorWindow {
                 """;
     }
 
+    /**
+     * 关窗清理。会话清理（stopCaptureScreen 等 RPC）放到后台线程：会话可能仍在
+     * 同步启动中（设备握手最长数秒），FX 线程不能跟着阻塞。onClosed 必须总是
+     * 触发——否则 App 的 serial→窗口映射残留，同设备再也无法重开。
+     */
     public void closeSession() {
-        if (session != null) {
-            session.close();
-            session = null;
-            if (onClosed != null) {
-                onClosed.run();
-            }
+        windowClosed = true;
+        MirrorSession s = session;
+        session = null;
+        if (s != null) {
+            Thread cleaner = new Thread(s::close, "mirror-close-" + (device != null ? device.serial() : ""));
+            cleaner.setDaemon(false); // 非守护：应用退出也要把设备侧流停干净
+            cleaner.start();
+        }
+        if (onClosed != null) {
+            onClosed.run();
         }
     }
 

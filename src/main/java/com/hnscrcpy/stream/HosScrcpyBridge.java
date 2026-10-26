@@ -109,6 +109,17 @@ public final class HosScrcpyBridge implements AutoCloseable {
         invoke("requestIDRFrame", new Class<?>[0]);
     }
 
+    /**
+     * 桥内 shell：经设备侧投屏守护进程的既有连接执行命令，免去每次本地起 hdc
+     * 子进程的开销（实测 ~130ms vs ~270ms；文本注入省得更多）。1.0.20-beta 起可用。
+     * 设备侧异常经 invoke 包装为 SessionException 抛出。
+     */
+    public String executeShellCommand(String command, int timeoutSec) {
+        Object out = invoke("executeShellCommand",
+                new Class<?>[]{String.class, int.class}, command, timeoutSec);
+        return out == null ? "" : out.toString();
+    }
+
     @Override
     public void close() {
         try {

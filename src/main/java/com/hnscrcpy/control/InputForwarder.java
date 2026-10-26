@@ -38,10 +38,17 @@ public final class InputForwarder {
     private long lastMoveMs;
     /** 触摸监听（TextInjector 回填输入焦点锚点用）；可空。 */
     private java.util.function.BiConsumer<Integer, Integer> touchListener;
+    /** 输入活动钩子（看门狗"输入预言机"：有注入却画面不变 → 流真死）；可空。 */
+    private Runnable activityHook = () -> { };
 
     /** 注册触摸按下监听（设备坐标），用于键盘/粘贴注入的焦点锚点。 */
     public void setTouchListener(java.util.function.BiConsumer<Integer, Integer> listener) {
         this.touchListener = listener;
+    }
+
+    /** 注册输入活动钩子（每次实际下发控制事件时触发）。 */
+    public void setActivityHook(Runnable hook) {
+        this.activityHook = hook != null ? hook : () -> { };
     }
 
     public InputForwarder(DeviceController controller, CoordinateMapper mapper,
@@ -137,6 +144,7 @@ public final class InputForwarder {
 
     /** 控制调用串行化提交；异常必须接住——执行器线程的未捕获异常会静默消失。 */
     private void submit(int[] p, Runnable call) {
+        activityHook.run();
         controlExecutor.execute(() -> {
             try {
                 call.run();

@@ -17,6 +17,10 @@ public final class Launcher {
     }
 
     public static void main(String[] args) {
+        // 所有非 FX 线程的未捕获异常落盘（native 崩溃由 -XX:ErrorFile 覆盖，见打包脚本）
+        Thread.setDefaultUncaughtExceptionHandler((t, e) ->
+                org.slf4j.LoggerFactory.getLogger(Launcher.class)
+                        .error("uncaught exception on thread {}", t.getName(), e));
         App.main(args);
     }
 }

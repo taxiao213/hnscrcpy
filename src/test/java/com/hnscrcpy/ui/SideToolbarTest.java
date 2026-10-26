@@ -45,7 +45,7 @@ class SideToolbarTest {
         Runnable noop = () -> {
         };
         return new SideToolbar.Actions(noop, noop, noop, noop, noop, noop,
-                noop, noop, noop, noop, noop, noop, noop);
+                noop, noop, noop, noop, noop, noop, noop, () -> false);
     }
 
     private static <T> T onFx(java.util.concurrent.Callable<T> call) throws Exception {
@@ -105,11 +105,37 @@ class SideToolbarTest {
         Runnable noop = () -> {
         };
         var actions = new SideToolbar.Actions(noop, noop, noop, noop, noop, noop,
-                noop, noop, noop, noop, noop, () -> fired.set(true), noop);
+                noop, noop, noop, noop, noop, () -> fired.set(true), noop, () -> false);
         var entries = onFx(() -> new SideToolbar(actions).menuEntries());
         var top = entries.stream().filter(e -> e.label().equals("窗口置顶")).findFirst().orElseThrow();
         top.action().run();
         assertThat(fired).isTrue();
+    }
+
+    @Test
+    @DisplayName("top entry checked state follows topState supplier and renders a ✓ mark")
+    void topEntry_checkedStateFollowsSupplier() throws Exception {
+        Runnable noop = () -> {
+        };
+        AtomicBoolean top = new AtomicBoolean(true);
+        var actions = new SideToolbar.Actions(noop, noop, noop, noop, noop, noop,
+                noop, noop, noop, noop, noop, noop, noop, top::get);
+        var toolbar = onFx(() -> new SideToolbar(actions));
+
+        var entries = onFx(toolbar::menuEntries);
+        var topEntry = entries.stream()
+                .filter(e -> e.label().equals("窗口置顶")).findFirst().orElseThrow();
+        assertThat(topEntry.checked()).isTrue();
+        // 勾选态渲染出 ✓ 标记（menu-check 样式），取消置顶后消失
+        var content = onFx(toolbar::buildMenuContent);
+        assertThat(onFx(() -> content.lookupAll(".menu-check"))).isNotEmpty();
+
+        top.set(false);
+        var entriesOff = onFx(toolbar::menuEntries);
+        assertThat(entriesOff.stream().filter(e -> e.label().equals("窗口置顶"))
+                .findFirst().orElseThrow().checked()).isFalse();
+        var contentOff = onFx(toolbar::buildMenuContent);
+        assertThat(onFx(() -> contentOff.lookupAll(".menu-check"))).isEmpty();
     }
 
     @Test
