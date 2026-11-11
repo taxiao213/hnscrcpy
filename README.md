@@ -143,8 +143,8 @@ hnscrcpy 自有代码以 **[Apache License 2.0](LICENSE)** 授权，`Copyright 2
 | **CSDN** | <http://blog.csdn.net/yin13753884368/article> |
 | **GitHub** | <https://github.com/taxiao213> |
 
-> 💬 **进群交流**：扫码添加个人微信，回复「**他晓**」即可进群。
+> 💬 **客户交流群**：扫码直接进群，问题反馈 / 使用交流 / 更新通知；如二维码已过期，可添加个人微信回复「**他晓**」拉你进群。
 
-| 微信公众号「他晓」 | 个人微信（回复「他晓」进群） |
-|:---:|:---:|
-| <img src="docs/images/qrcode_gzh.jpg" width="220"> | <img src="docs/images/qrcode_wechat.png" width="220"> |
+| 微信公众号「他晓」 | 客户交流群（扫码进群） | 个人微信 |
+|:---:|:---:|:---:|
+| <img src="docs/images/qrcode_gzh.jpg" width="200"> | <img src="docs/images/qrcode_group.png" width="200"> | <img src="docs/images/qrcode_wechat.png" width="200"> |
